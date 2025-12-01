@@ -1,6 +1,5 @@
 node_modules/
 data/safiya_boutique
-uploads/
 .env
 .DS_Store
 *.log
