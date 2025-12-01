@@ -1,30 +1,38 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// 🔥 FORCER LA CREATION DU DOSSIER uploads SUR RENDER
+const uploadsPath = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log("📁 Dossier uploads créé automatiquement");
+}
+
 // Charger et initialiser la base MySQL
 const { init } = require('./config/database');
 init();
 
-// Middleware
+// 🔥 CORS PROPRE
 const allowedOrigins = [
-  
-  process.env.FRONTEND_URL,
-  process.env.NEXT_PUBLIC_API_URL?.replace('/api', ''),
+  process.env.FRONTEND_URL,                 // URL du front
+  process.env.FRONTEND_URL?.replace(/\/$/, ''), // version sans /
 ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // Postman etc.
 
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true);
+      console.log("❌ Origine refusée :", origin);
+      callback(null, false);
     }
   },
   credentials: true
