@@ -1,0 +1,10 @@
+node_modules/
+data/safiya_boutique
+uploads/
+.env
+.DS_Store
+*.log
+client/.next/
+client/node_modules/
+client/.env.local
+
