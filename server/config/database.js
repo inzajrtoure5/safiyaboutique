@@ -8,7 +8,7 @@ const config = {
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: true
+    rejectUnauthorized: false
   },
   waitForConnections: true,
   connectionLimit: 10,
