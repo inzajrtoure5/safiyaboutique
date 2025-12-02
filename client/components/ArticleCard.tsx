@@ -1,9 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
-import { Pack, Article } from '../app/type';
-
+import { Article } from '../app/type';
 
 type ArticleCardProps = {
   article: Article;
@@ -11,14 +9,24 @@ type ArticleCardProps = {
   onDetail: (article: Article) => void;
 };
 
-
 export default function ArticleCard({ article, onAcheter, onDetail }: ArticleCardProps) {
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://safiyaboutique-utvv.onrender.com';
+
+  // Fonction pour obtenir l'URL complète de l'image
+  const getImageUrl = (img: string | null) => {
+    if (!img) return null;
+    return img.startsWith('http') ? img : `${BASE_URL}${img}`;
+  };
+
+  const mainImage = getImageUrl(article.image_principale);
+  const otherImages = (article.images || []).map(getImageUrl);
+
   return (
     <div className="group bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 border border-[#E5E5E5]">
       <div className="relative w-full h-48 sm:h-64 md:h-80 bg-[#FAFAFA] flex items-center justify-center overflow-hidden">
-        {article.image_principale ? (
+        {mainImage ? (
           <Image
-            src={article.image_principale}
+            src={mainImage}
             alt={article.nom}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -72,4 +80,3 @@ export default function ArticleCard({ article, onAcheter, onDetail }: ArticleCar
     </div>
   );
 }
-
