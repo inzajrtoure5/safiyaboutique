@@ -18,18 +18,15 @@ if (!fs.existsSync(uploadsPath)) {
 const { init } = require('./config/database');
 init();
 
+// 🔥 CORS PROPRE
 const allowedOrigins = [
-  process.env.FRONTEND_URL?.replace(/\/$/, ''),
-  process.env.FRONTEND_URL,
-  "https://safiyaboutique-o8gc.onrender.com",
-  "https://safiyaboutique-o8gc.onrender.com/"
+  process.env.FRONTEND_URL,                 // URL du front
+  process.env.FRONTEND_URL?.replace(/\/$/, ''), // version sans /
 ].filter(Boolean);
 
 app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
-
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Postman etc.
 
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
