@@ -170,9 +170,8 @@ router.get('/whatsapp-number', (req, res) => {
     res.json({ whatsapp_number: param?.valeur || '' });
   });
 });
-----------------------------------------------------------
-// Modifier la ligne 196 - fonction de mise à jour des paramètres
 
+// ✅ Modifier les paramètres
 router.put('/parametres', authenticate, (req, res) => {
   let bodyData = req.body;
   
@@ -357,7 +356,7 @@ router.put('/parametres', authenticate, (req, res) => {
     );
   });
 });
-------------------------------------------------------------
+
 // Récupérer tous les types d'articles (admin)
 router.get('/types-articles', authenticate, (req, res) => {
   db.all('SELECT * FROM types_articles ORDER BY nom', (err, types) => {
@@ -367,8 +366,6 @@ router.get('/types-articles', authenticate, (req, res) => {
     res.json(types);
   });
 });
-
-// ...existing code...
 
 // Récupérer tous les articles (admin - inclut les indisponibles ET même ceux avec types inactifs)
 router.get('/articles', authenticate, (req, res) => {
@@ -393,8 +390,6 @@ router.get('/articles', authenticate, (req, res) => {
     })));
   });
 });
-
-// ...existing code...
 
 // Réinitialiser uniquement les statistiques (visites, visiteurs, commandes)
 router.post('/reinitialiser-stats', authenticate, (req, res) => {
@@ -830,5 +825,3 @@ router.delete('/contenus-legaux/:page', authenticate, (req, res) => {
 });
 
 module.exports = router;
-
-
