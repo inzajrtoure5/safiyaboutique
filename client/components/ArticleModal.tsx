@@ -1,9 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { getArticle, getPackVisiteursPublic } from '@/lib/api';
-import { Pack, Article } from '../app/type';
+import Image from 'next/image';
+import { getArticle, getPackVisiteursPublic } from '../lib/api';
 
 interface ArticleModalProps {
   articleId: number | null;
@@ -17,6 +16,22 @@ export default function ArticleModal({ articleId, onClose, onAcheter }: ArticleM
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [packConfig, setPackConfig] = useState<any>(null);
   const [isEligible, setIsEligible] = useState(false);
+
+  // ✅ FONCTION getImageUrl - À PLACER ICI
+  const getImageUrl = (img: string | null): string | null => {
+    if (!img) return null;
+    
+    // Si c'est déjà une URL complète
+    if (img.startsWith('http')) return img;
+    
+    // Construire à partir de l'URL de base SANS /api
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://safiyaboutique-utvv.onrender.com';
+    
+    // Nettoyer le chemin
+    const cleanPath = img.startsWith('/') ? img : `/${img}`;
+    
+    return `${baseUrl}${cleanPath}`;
+  };
 
   useEffect(() => {
     if (articleId) {
@@ -71,11 +86,14 @@ export default function ArticleModal({ articleId, onClose, onAcheter }: ArticleM
 
   if (!articleId) return null;
 
+  // ✅ CONSTRUIRE LES IMAGES AVEC getImageUrl
   const images = article?.images && article.images.length > 0 
-    ? article.images 
+    ? article.images.map((img: string) => getImageUrl(img)).filter(Boolean)
     : article?.image_principale 
-    ? [article.image_principale] 
+    ? [getImageUrl(article.image_principale)].filter(Boolean)
     : [];
+
+  const mainImage = images[currentImageIndex] || null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -98,35 +116,47 @@ export default function ArticleModal({ articleId, onClose, onAcheter }: ArticleM
             </div>
             <div className="p-8">
               <div className="grid md:grid-cols-2 gap-8">
-                {/* Images */}
-                <div>
-                  <div className="relative w-full h-96 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-[#E8E0D5] shadow-lg">
-                    {images.length > 0 ? (
+                {/* SECTION IMAGE */}
+                <div className="flex flex-col gap-4">
+                  {mainImage ? (
+                    <div className="relative w-full aspect-square bg-[#FAFAFA] rounded-lg overflow-hidden border border-[#E8E0D5]">
                       <Image
-                        src={images[currentImageIndex]}
+                        src={mainImage}
                         alt={article.nom}
                         fill
                         className="object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          console.error('Modal image failed to load:', mainImage);
+                          target.style.opacity = '0.5';
+                        }}
                       />
-                    ) : (
-                      <span className="luxury-text text-[#8B6F47]/40 text-lg">Pas d'image</span>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="relative w-full aspect-square bg-[#FAFAFA] rounded-lg overflow-hidden border border-[#E8E0D5] flex items-center justify-center">
+                      <span className="text-[#8B7355]/40 luxury-text">Pas d'image</span>
+                    </div>
+                  )}
+
+                  {/* Carrousel d'images */}
                   {images.length > 1 && (
-                    <div className="flex space-x-2 overflow-x-auto">
+                    <div className="flex gap-2 overflow-x-auto pb-2">
                       {images.map((img: string, index: number) => (
                         <button
                           key={index}
                           onClick={() => setCurrentImageIndex(index)}
-                          className={`relative w-24 h-24 flex-shrink-0 rounded-lg border-2 overflow-hidden transition-all duration-300 ${
-                            currentImageIndex === index ? 'border-[#D4AF37] shadow-lg scale-105' : 'border-[#E8E0D5] hover:border-[#D4A574]'
+                          className={`flex-shrink-0 w-16 h-16 rounded border-2 transition-all ${
+                            index === currentImageIndex
+                              ? 'border-[#D4AF37]'
+                              : 'border-[#E8E0D5] hover:border-[#8B6F47]'
                           }`}
                         >
                           <Image
                             src={img}
-                            alt={`${article.nom} ${index + 1}`}
-                            fill
-                            className="object-cover"
+                            alt={`${article.nom} - ${index}`}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover rounded"
                           />
                         </button>
                       ))}
@@ -134,36 +164,68 @@ export default function ArticleModal({ articleId, onClose, onAcheter }: ArticleM
                   )}
                 </div>
 
-                {/* Details */}
-                <div className="space-y-6">
+                {/* SECTION DÉTAILS */}
+                <div className="flex flex-col gap-6">
+                  {/* Prix */}
                   <div>
-                    <p className="luxury-title text-4xl font-bold text-[#1A1A1A] mb-2">{article.prix.toLocaleString()} FCFA</p>
+                    {article.prix_original && parseFloat(String(article.prix_original)) > parseFloat(String(article.prix)) ? (
+                      <div>
+                        <p className="text-sm text-[#8B7355] line-through luxury-text font-semibold mb-2">
+                          {parseFloat(String(article.prix_original)).toLocaleString()} FCFA
+                        </p>
+                        <p className="text-3xl font-bold text-[#1A1A1A] luxury-title">
+                          {parseFloat(String(article.prix)).toLocaleString()} FCFA
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-3xl font-bold text-[#1A1A1A] luxury-title">
+                        {parseFloat(String(article.prix)).toLocaleString()} FCFA
+                      </p>
+                    )}
                   </div>
-                  {isEligible && packConfig && (
-                    <div className="mb-4 p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border-2 border-green-300">
-                      <p className="luxury-text text-sm font-semibold text-green-800">
-                        ✅ Éligible à un pack pour bénéficier d'un rabais de {packConfig.reduction}%
-                      </p>
-                      <p className="luxury-text text-xs text-green-700 mt-1">
-                        Ajoutez {packConfig.nombre_articles} articles éligibles dans votre panier pour créer un pack avec réduction !
-                      </p>
-                    </div>
-                  )}
+
+                  {/* Description */}
                   {article.description && (
-                    <div className="border-t border-b border-[#E8E0D5] py-6">
-                      <h3 className="luxury-title text-xl text-[#3D2817] mb-3">Description</h3>
-                      <p className="luxury-text text-[#5C4033] leading-relaxed">{article.description}</p>
+                    <div>
+                      <h3 className="font-semibold text-[#3D2817] mb-2">Description</h3>
+                      <p className="text-[#555] leading-relaxed text-sm" dangerouslySetInnerHTML={{ __html: article.description }} />
                     </div>
                   )}
+
+                  {/* Statut indisponible */}
+                  {article.indisponible === 1 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-700 font-semibold">⚠️ Article actuellement indisponible</p>
+                    </div>
+                  )}
+
+                  {/* Info Pack */}
+                  {isEligible && packConfig && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <p className="text-green-700 font-semibold mb-2">✅ Eligible au pack</p>
+                      <p className="text-green-600 text-sm">
+                        Réduction de {packConfig.reduction}% à partir de {packConfig.nombre_articles} articles
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Bouton Ajouter au panier */}
                   <button
-                    onClick={() => {
-                      onAcheter(article);
-                      onClose();
-                    }}
-                    className="w-full luxury-text text-sm uppercase tracking-wider bg-[#1A1A1A] text-white py-4 px-8 rounded-lg hover:bg-[#2A2A2A] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] font-semibold"
+                    onClick={() => onAcheter(article)}
+                    disabled={article.indisponible === 1}
+                    className={`w-full py-4 px-6 rounded-lg font-bold text-lg uppercase tracking-wider transition-all duration-300 ${
+                      article.indisponible === 1
+                        ? 'bg-[#E5E5E5] text-[#8B7355] cursor-not-allowed opacity-60'
+                        : 'bg-[#1A1A1A] text-white hover:bg-[#2A2A2A] active:scale-95'
+                    }`}
                   >
-                    Ajouter au panier
+                    {article.indisponible === 1 ? 'Indisponible' : 'Ajouter au panier'}
                   </button>
+
+                  {/* Info supplémentaire */}
+                  <div className="text-xs text-[#8B7355] text-center">
+                    {article.indisponible !== 1 && '✨ Livraison rapide disponible'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -175,4 +237,3 @@ export default function ArticleModal({ articleId, onClose, onAcheter }: ArticleM
     </div>
   );
 }
-

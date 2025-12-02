@@ -45,6 +45,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/logo', express.static(path.join(__dirname, '../LOGO')));
 
+// ✅ AJOUTER UNE ROUTE DE DIAGNOSTIC
+app.get('/api/diagnostic/uploads', (req, res) => {
+  const fs = require('fs');
+  const uploadsPath = path.join(__dirname, 'uploads');
+  
+  const exists = fs.existsSync(uploadsPath);
+  const files = exists ? fs.readdirSync(uploadsPath).slice(0, 10) : [];
+  
+  res.json({
+    uploadsPath,
+    exists,
+    fileCount: files.length,
+    sampleFiles: files,
+    baseUrl: process.env.BASE_URL
+  });
+});
+
 // Routes API
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/articles', require('./routes/articles'));

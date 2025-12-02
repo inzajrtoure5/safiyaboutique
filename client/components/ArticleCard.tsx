@@ -10,16 +10,24 @@ type ArticleCardProps = {
 };
 
 export default function ArticleCard({ article, onAcheter, onDetail }: ArticleCardProps) {
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://safiyaboutique-utvv.onrender.com/api';
-
-  // Fonction pour obtenir l'URL complète de l'image
-  const getImageUrl = (img: string | null) => {
+  // ✅ Fonction pour construire les URLs d'images
+  const getImageUrl = (img: string | null): string | null => {
     if (!img) return null;
-    return img.startsWith('http') ? img : `${BASE_URL}${img}`;
+    
+    // Si c'est déjà une URL complète
+    if (img.startsWith('http')) return img;
+    
+    // Construire à partir de l'URL de base SANS /api
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://safiyaboutique-utvv.onrender.com';
+    
+    // Nettoyer le chemin
+    const cleanPath = img.startsWith('/') ? img : `/${img}`;
+    
+    return `${baseUrl}${cleanPath}`;
   };
 
   const mainImage = getImageUrl(article.image_principale);
-  const otherImages = (article.images || []).map(getImageUrl);
+  const otherImages = (article.images || []).map(getImageUrl).filter(Boolean);
 
   return (
     <div className="group bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 border border-[#E5E5E5]">
@@ -30,6 +38,11 @@ export default function ArticleCard({ article, onAcheter, onDetail }: ArticleCar
             alt={article.nom}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-105"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              console.error('Image failed to load:', mainImage);
+              target.style.opacity = '0.5';
+            }}
           />
         ) : (
           <span className="text-[#8B7355]/40 luxury-text text-lg">Pas d'image</span>

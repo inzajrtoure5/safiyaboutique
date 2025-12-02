@@ -170,10 +170,10 @@ router.get('/whatsapp-number', (req, res) => {
     res.json({ whatsapp_number: param?.valeur || '' });
   });
 });
+----------------------------------------------------------
+// Modifier la ligne 196 - fonction de mise à jour des paramètres
 
-// Modifier les paramètres
 router.put('/parametres', authenticate, (req, res) => {
-  // Accepter soit un tableau de paires [cle, valeur], soit un objet
   let bodyData = req.body;
   
   // Si c'est un tableau de paires, le convertir en objet
@@ -186,12 +186,13 @@ router.put('/parametres', authenticate, (req, res) => {
     });
   }
   
+  // ✅ INCLURE TOUS LES PARAMÈTRES POSSIBLES
   const { 
     whatsapp_number, whatsapp_url, whatsapp_active,
     tiktok_url, tiktok_active,
     instagram_url, instagram_active,
     gmail_url, gmail_active,
-    boutiques_texte,
+    boutiques_texte, boutiques_url, boutiques_adresses,
     alerte_fetes_active, alerte_fetes_texte, alerte_fetes_reduction,
     maintenance_active, maintenance_message,
     wave_account, wave_merchant_code, wave_active, 
@@ -202,11 +203,11 @@ router.put('/parametres', authenticate, (req, res) => {
     accueil_titre, accueil_description
   } = bodyData;
 
-  console.log('Requête de mise à jour des paramètres reçue:', bodyData);
+  console.log('Requête de mise à jour des paramètres reçue:', Object.keys(bodyData));
 
   const updates = [];
   
-  // Toujours inclure tous les paramètres réseaux sociaux et contacts si présents dans la requête
+  // ✅ TOUS LES PARAMÈTRES - ajouter les manquants
   if (whatsapp_number !== undefined) {
     updates.push(['whatsapp_number', String(whatsapp_number || '')]);
   }
@@ -214,55 +215,48 @@ router.put('/parametres', authenticate, (req, res) => {
     updates.push(['whatsapp_url', String(whatsapp_url || '')]);
   }
   if (whatsapp_active !== undefined) {
-    // Normalisation stricte comme wave_active et maintenance_active
     const whatsappValue = (whatsapp_active === '1' || whatsapp_active === 1 || whatsapp_active === true || whatsapp_active === 'true') ? '1' : '0';
-    console.log('🔧 Mise à jour de whatsapp_active:', whatsapp_active, '->', whatsappValue);
     updates.push(['whatsapp_active', whatsappValue]);
-  } else {
-    updates.push(['whatsapp_active', '0']);
-    console.log('🔧 whatsapp_active non fourni, défini à "0" par défaut');
   }
+  
   if (tiktok_url !== undefined) {
     updates.push(['tiktok_url', String(tiktok_url || '')]);
   }
   if (tiktok_active !== undefined) {
-    // Normalisation stricte comme wave_active et maintenance_active
     const tiktokValue = (tiktok_active === '1' || tiktok_active === 1 || tiktok_active === true || tiktok_active === 'true') ? '1' : '0';
-    console.log('🔧 Mise à jour de tiktok_active:', tiktok_active, '->', tiktokValue);
     updates.push(['tiktok_active', tiktokValue]);
-  } else {
-    updates.push(['tiktok_active', '0']);
-    console.log('🔧 tiktok_active non fourni, défini à "0" par défaut');
   }
+  
   if (instagram_url !== undefined) {
     updates.push(['instagram_url', String(instagram_url || '')]);
   }
   if (instagram_active !== undefined) {
-    // Normalisation stricte comme wave_active et maintenance_active
-    const instagramValue = (instagram_active === '1' || instagram_active === 1 || instagram_active === true || instagram_active === 'true') ? '1' : '0';
-    console.log('🔧 Mise à jour de instagram_active:', instagram_active, '->', instagramValue);
-    updates.push(['instagram_active', instagramValue]);
-  } else {
-    updates.push(['instagram_active', '0']);
-    console.log('🔧 instagram_active non fourni, défini à "0" par défaut');
+    const instaValue = (instagram_active === '1' || instagram_active === 1 || instagram_active === true || instagram_active === 'true') ? '1' : '0';
+    updates.push(['instagram_active', instaValue]);
   }
+  
   if (gmail_url !== undefined) {
     updates.push(['gmail_url', String(gmail_url || '')]);
   }
   if (gmail_active !== undefined) {
-    // Normalisation stricte comme wave_active et maintenance_active
     const gmailValue = (gmail_active === '1' || gmail_active === 1 || gmail_active === true || gmail_active === 'true') ? '1' : '0';
-    console.log('🔧 Mise à jour de gmail_active:', gmail_active, '->', gmailValue);
     updates.push(['gmail_active', gmailValue]);
-  } else {
-    updates.push(['gmail_active', '0']);
-    console.log('🔧 gmail_active non fourni, défini à "0" par défaut');
   }
+  
+  // ✅ AJOUTER LES PARAMÈTRES MANQUANTS
   if (boutiques_texte !== undefined) {
-    updates.push(['boutiques_texte', String(boutiques_texte || '')]);
+    updates.push(['boutiques_texte', String(boutiques_texte || 'Vos boutiques bientôt disponibles')]);
   }
+  if (boutiques_url !== undefined) {
+    updates.push(['boutiques_url', String(boutiques_url || '')]);
+  }
+  if (boutiques_adresses !== undefined) {
+    updates.push(['boutiques_adresses', String(boutiques_adresses || '')]);
+  }
+  
   if (alerte_fetes_active !== undefined) {
-    updates.push(['alerte_fetes_active', alerte_fetes_active ? '1' : '0']);
+    const alerteValue = (alerte_fetes_active === '1' || alerte_fetes_active === 1 || alerte_fetes_active === true || alerte_fetes_active === 'true') ? '1' : '0';
+    updates.push(['alerte_fetes_active', alerteValue]);
   }
   if (alerte_fetes_texte !== undefined) {
     updates.push(['alerte_fetes_texte', String(alerte_fetes_texte || '')]);
@@ -270,14 +264,15 @@ router.put('/parametres', authenticate, (req, res) => {
   if (alerte_fetes_reduction !== undefined) {
     updates.push(['alerte_fetes_reduction', String(alerte_fetes_reduction || '0')]);
   }
+  
   if (maintenance_active !== undefined) {
-    const maintenanceValue = maintenance_active === true || maintenance_active === '1' || maintenance_active === 1 ? '1' : '0';
-    console.log('🔧 Mise à jour de maintenance_active:', maintenance_active, '->', maintenanceValue);
+    const maintenanceValue = (maintenance_active === '1' || maintenance_active === 1 || maintenance_active === true || maintenance_active === 'true') ? '1' : '0';
     updates.push(['maintenance_active', maintenanceValue]);
   }
   if (maintenance_message !== undefined) {
     updates.push(['maintenance_message', String(maintenance_message || '')]);
   }
+  
   if (wave_account !== undefined) {
     updates.push(['wave_account', String(wave_account || '')]);
   }
@@ -285,40 +280,29 @@ router.put('/parametres', authenticate, (req, res) => {
     updates.push(['wave_merchant_code', String(wave_merchant_code || '')]);
   }
   if (wave_active !== undefined) {
-    // S'assurer que la valeur est toujours '0' ou '1' (comme maintenance_active)
-    // Strictement : si ce n'est pas explicitement '1', c'est '0'
     const waveValue = (wave_active === '1' || wave_active === 1 || wave_active === true || wave_active === 'true') ? '1' : '0';
-    console.log('🔧 Mise à jour de wave_active:', wave_active, '->', waveValue);
     updates.push(['wave_active', waveValue]);
-  } else {
-    // Si wave_active n'est pas fourni, le définir à '0' par défaut (comme maintenance_active)
-    updates.push(['wave_active', '0']);
-    console.log('🔧 wave_active non fourni, défini à "0" par défaut');
   }
+  
   if (pack_active !== undefined) {
-    updates.push(['pack_active', pack_active ? '1' : '0']);
+    const packValue = (pack_active === '1' || pack_active === 1 || pack_active === true || pack_active === 'true') ? '1' : '0';
+    updates.push(['pack_active', packValue]);
   }
   if (pack_nombre_articles !== undefined) {
-    updates.push(['pack_nombre_articles', String(pack_nombre_articles || '')]);
+    updates.push(['pack_nombre_articles', String(pack_nombre_articles || '3')]);
   }
   if (pack_reduction !== undefined) {
-    updates.push(['pack_reduction', String(pack_reduction || '')]);
+    updates.push(['pack_reduction', String(pack_reduction || '5')]);
   }
-  if (pack_visiteurs_active !== undefined) {
-    updates.push(['pack_visiteurs_active', pack_visiteurs_active ? '1' : '0']);
-  }
-  if (pack_visiteurs_articles !== undefined) {
-    updates.push(['pack_visiteurs_articles', JSON.stringify(pack_visiteurs_articles || [])]);
-  }
-  if (pack_visiteurs_config !== undefined) {
-    updates.push(['pack_visiteurs_config', typeof pack_visiteurs_config === 'string' ? pack_visiteurs_config : JSON.stringify(pack_visiteurs_config)]);
-  }
+  
   if (frais_livraison_active !== undefined) {
-    updates.push(['frais_livraison_active', frais_livraison_active ? '1' : '0']);
+    const fraisValue = (frais_livraison_active === '1' || frais_livraison_active === 1 || frais_livraison_active === true || frais_livraison_active === 'true') ? '1' : '0';
+    updates.push(['frais_livraison_active', fraisValue]);
   }
   if (frais_livraison_montant !== undefined) {
     updates.push(['frais_livraison_montant', String(frais_livraison_montant || '1500')]);
   }
+  
   if (contact_adresse !== undefined) {
     updates.push(['contact_adresse', String(contact_adresse || '')]);
   }
@@ -331,6 +315,7 @@ router.put('/parametres', authenticate, (req, res) => {
   if (contact_horaires_heure !== undefined) {
     updates.push(['contact_horaires_heure', String(contact_horaires_heure || '')]);
   }
+  
   if (accueil_titre !== undefined) {
     updates.push(['accueil_titre', String(accueil_titre || '')]);
   }
@@ -342,39 +327,37 @@ router.put('/parametres', authenticate, (req, res) => {
     return res.status(400).json({ error: 'Aucun paramètre à mettre à jour' });
   }
 
-  console.log(`Mise à jour de ${updates.length} paramètre(s):`, updates.map(([k]) => k).join(', '));
-
-  // Utiliser une approche séquentielle pour éviter les problèmes de concurrence
   let completed = 0;
   let hasError = false;
-  let errorMessage = '';
 
-  updates.forEach(([cle, valeur], index) => {
-    db.run('INSERT INTO parametres (cle, valeur) VALUES (?, ?) ON DUPLICATE KEY UPDATE valeur = VALUES(valeur)', [cle, valeur], function(err) {
-      completed++;
-      
-      if (err) {
-        console.error(`❌ Erreur lors de la mise à jour de ${cle}:`, err);
-        hasError = true;
-        errorMessage = err.message || `Erreur lors de la mise à jour de ${cle}`;
+  updates.forEach(([cle, valeur]) => {
+    db.run(
+      'INSERT INTO parametres (cle, valeur) VALUES (?, ?) ON DUPLICATE KEY UPDATE valeur = VALUES(valeur)',
+      [cle, valeur],
+      function(err) {
+        completed++;
         
-        // Si toutes les mises à jour sont complètes, répondre avec l'erreur
-        if (completed === updates.length) {
-          return res.status(500).json({ error: errorMessage });
+        if (err) {
+          console.error(`❌ Erreur lors de la mise à jour de ${cle}:`, err);
+          hasError = true;
+          const errorMessage = `Erreur lors de la mise à jour de ${cle}: ${err.message}`;
+          
+          if (completed === updates.length) {
+            return res.status(500).json({ error: errorMessage });
+          }
+        } else {
+          console.log(`✅ ${cle} mis à jour avec succès`);
         }
-      } else {
-        console.log(`✅ ${cle} mis à jour avec succès`);
-      }
 
-      // Si toutes les mises à jour sont complètes sans erreur
-      if (completed === updates.length && !hasError) {
-        console.log('✅ Tous les paramètres ont été mis à jour avec succès');
-        res.json({ message: 'Paramètres mis à jour avec succès' });
+        if (completed === updates.length && !hasError) {
+          console.log('✅ Tous les paramètres ont été mis à jour avec succès');
+          res.json({ message: 'Paramètres mis à jour avec succès' });
+        }
       }
-    });
+    );
   });
 });
-
+------------------------------------------------------------
 // Récupérer tous les types d'articles (admin)
 router.get('/types-articles', authenticate, (req, res) => {
   db.all('SELECT * FROM types_articles ORDER BY nom', (err, types) => {
@@ -384,6 +367,8 @@ router.get('/types-articles', authenticate, (req, res) => {
     res.json(types);
   });
 });
+
+// ...existing code...
 
 // Récupérer tous les articles (admin - inclut les indisponibles ET même ceux avec types inactifs)
 router.get('/articles', authenticate, (req, res) => {
@@ -400,21 +385,16 @@ router.get('/articles', authenticate, (req, res) => {
       console.error('Erreur lors de la récupération des articles:', err);
       return res.status(500).json({ error: 'Erreur serveur' });
     }
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-    res.json(articles.map(article => {
-      // Corriger les chemins d'images si nécessaire
-      let imagePrincipale = article.image_principale;
-      if (imagePrincipale && !imagePrincipale.startsWith('http')) {
-        imagePrincipale = `${baseUrl}${imagePrincipale.startsWith('/') ? '' : '/'}${imagePrincipale}`;
-      }
-      return {
-        ...article,
-        image_principale: imagePrincipale,
-        images: article.images ? JSON.parse(article.images || '[]') : []
-      };
-    }));
+    
+    // ✅ NE PAS MODIFIER LES CHEMINS - Les laisser tels quels
+    res.json(articles.map(article => ({
+      ...article,
+      images: article.images ? JSON.parse(article.images || '[]') : []
+    })));
   });
 });
+
+// ...existing code...
 
 // Réinitialiser uniquement les statistiques (visites, visiteurs, commandes)
 router.post('/reinitialiser-stats', authenticate, (req, res) => {

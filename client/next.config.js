@@ -5,8 +5,18 @@ module.exports = {
       {
         protocol: 'https',
         hostname: 'safiyaboutique-utvv.onrender.com',
-        pathname: '/uploads/**',
-      }
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost:5000',
+        pathname: '/**',
+      },
     ],
   },
 };

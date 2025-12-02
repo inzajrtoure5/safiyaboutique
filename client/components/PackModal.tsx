@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Pack, Article } from '../app/type';
 
-
-
 interface PackModalProps {
   pack: Pack | null;
   onClose: () => void;
@@ -15,27 +13,41 @@ interface PackModalProps {
 export default function PackModal({ pack, onClose, onAcheter }: PackModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  if (!pack) return null;
+  // ✅ FONCTION getImageUrl - CORRIGER ICI
+  const getImageUrl = (img: string | null): string | null => {
+    if (!img) return null;
+    
+    if (img.startsWith('http')) return img;
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://safiyaboutique-utvv.onrender.com';
+    const cleanPath = img.startsWith('/') ? img : `/${img}`;
+    
+    return `${baseUrl}${cleanPath}`;
+  };
 
-  // Collecter toutes les images des articles du pack
-  const images: string[] = [];
-  if (pack.articles && Array.isArray(pack.articles)) {
-    pack.articles.forEach((article: any) => {
-      if (article && article.image_principale) {
-        images.push(article.image_principale);
-      }
-      if (article && article.images && Array.isArray(article.images)) {
-        article.images.forEach((img: string) => {
-          if (img && !images.includes(img)) images.push(img);
-        });
-      }
-    });
-  }
+  if (!pack) return null;
 
   // Réinitialiser l'index quand le pack change
   useEffect(() => {
     setCurrentImageIndex(0);
   }, [pack.id]);
+
+  // ✅ COLLECTER LES IMAGES CORRECTEMENT
+  const images: string[] = [];
+  if (pack.articles && Array.isArray(pack.articles)) {
+    pack.articles.forEach((article: any) => {
+      if (article && article.image_principale) {
+        const imgUrl = getImageUrl(article.image_principale);
+        if (imgUrl && !images.includes(imgUrl)) images.push(imgUrl);
+      }
+      if (article && article.images && Array.isArray(article.images)) {
+        article.images.forEach((img: string) => {
+          const imgUrl = getImageUrl(img);
+          if (imgUrl && !images.includes(imgUrl)) images.push(imgUrl);
+        });
+      }
+    });
+  }
 
   const handlePrev = () => {
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
@@ -68,6 +80,11 @@ export default function PackModal({ pack, onClose, onAcheter }: PackModalProps) 
                     alt={pack.nom}
                     fill
                     className="object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      console.error('Pack modal image failed to load:', images[currentImageIndex]);
+                      target.style.opacity = '0.5';
+                    }}
                   />
                 ) : (
                   <span className="luxury-text text-[#8B6F47]/40 text-lg">Pas d'image</span>
@@ -88,6 +105,11 @@ export default function PackModal({ pack, onClose, onAcheter }: PackModalProps) 
                         alt={`${pack.nom} ${index + 1}`}
                         fill
                         className="object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          console.error('Pack thumbnail failed:', img);
+                          target.style.opacity = '0.5';
+                        }}
                       />
                     </button>
                   ))}
@@ -128,10 +150,15 @@ export default function PackModal({ pack, onClose, onAcheter }: PackModalProps) 
                         {article.image_principale && (
                           <div className="relative w-full h-24 mb-2 rounded overflow-hidden">
                             <Image
-                              src={article.image_principale}
+                              src={getImageUrl(article.image_principale)}
                               alt={article.nom}
                               fill
                               className="object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                console.error('Article thumbnail failed:', article.image_principale);
+                                target.style.opacity = '0.5';
+                              }}
                             />
                           </div>
                         )}
@@ -166,4 +193,3 @@ export default function PackModal({ pack, onClose, onAcheter }: PackModalProps) 
     </div>
   );
 }
-
