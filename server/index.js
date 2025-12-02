@@ -7,12 +7,6 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 🔥 FORCER LA CREATION DU DOSSIER uploads SUR RENDER
-const uploadsPath = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-  console.log("📁 Dossier uploads créé automatiquement");
-}
 
 // Charger et initialiser la base MySQL
 const { init } = require('./config/database');
@@ -42,7 +36,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Fichiers statiques
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.use('/logo', express.static(path.join(__dirname, '../LOGO')));
 
 // ✅ AJOUTER UNE ROUTE DE DIAGNOSTIC

@@ -1,22 +1,15 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('../config/cloudinary');
 const { db } = require('../config/database');
 const authenticate = require('../middleware/auth');
 const router = express.Router();
 
-// Configuration multer pour les uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../uploads'));
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
+// Configuration multer (stockage en mémoire)
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
-const upload = multer({ storage: storage });
+// ...existing code...
 
 // Récupérer tous les articles (public)
 router.get('/', (req, res) => {
@@ -75,7 +68,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Créer un article (admin)
-router.post('/', authenticate, upload.array('images', 10), (req, res) => {
+router.post('/', authenticate, upload.array('images', 10), async (req, res) => {
   const { type_id, nom, prix, prix_original, description } = req.body;
   const files = req.files || [];
 
@@ -84,7 +77,7 @@ router.post('/', authenticate, upload.array('images', 10), (req, res) => {
   }
 
   // Vérifier que le type existe et est actif
-  db.get('SELECT id, actif FROM types_articles WHERE id = ?', [type_id], (err, type) => {
+  db.get('SELECT id, actif FROM types_articles WHERE id = ?', [type_id], async (err, type) => {
     if (err) {
       return res.status(500).json({ error: 'Erreur serveur' });
     }
@@ -97,130 +90,166 @@ router.post('/', authenticate, upload.array('images', 10), (req, res) => {
       return res.status(400).json({ error: 'Le type d\'article sélectionné est inactif. Veuillez l\'activer ou en choisir un autre.' });
     }
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-    const imagePrincipale = files[0] ? `${baseUrl}/uploads/${files[0].filename}` : null;
-    const images = files.map(file => `${baseUrl}/uploads/${file.filename}`);
+    try {
+      let imagePrincipale = null;
+      const images = [];
 
-    db.run(`
-      INSERT INTO articles (type_id, nom, prix, prix_original, description, image_principale, images)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [type_id, nom, prix, prix_original || null, description || '', imagePrincipale, JSON.stringify(images)], function(err) {
-      if (err) {
-        console.error('Erreur lors de la création de l\'article:', err);
-        return res.status(500).json({ error: 'Erreur serveur' });
+      // Upload chaque image sur Cloudinary
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        const imageUrl = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'safiya-boutique/articles',
+              resource_type: 'auto',
+              quality: 'auto',
+              fetch_format: 'auto',
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result.secure_url);
+            }
+          );
+          stream.end(file.buffer);
+        });
+
+        images.push(imageUrl);
+        if (i === 0) {
+          imagePrincipale = imageUrl;
+        }
       }
-      res.json({ id: this.lastID, message: 'Article créé avec succès' });
-    });
+
+      // Insérer dans la DB avec les URLs Cloudinary
+      db.run(`
+        INSERT INTO articles (type_id, nom, prix, prix_original, description, image_principale, images)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [type_id, nom, prix, prix_original || null, description || '', imagePrincipale, JSON.stringify(images)], function(err) {
+        if (err) {
+          console.error('❌ Erreur création article:', err);
+          return res.status(500).json({ error: 'Erreur serveur' });
+        }
+        console.log('✅ Article créé:', this.lastID);
+        res.json({ id: this.lastID, message: 'Article créé avec succès' });
+      });
+    } catch (error) {
+      console.error('❌ Erreur Cloudinary:', error);
+      res.status(500).json({ error: 'Erreur upload images' });
+    }
   });
 });
-
 // Modifier un article (admin)
-router.put('/:id', authenticate, upload.array('images', 10), (req, res) => {
+router.put('/:id', authenticate, upload.array('images', 10), async (req, res) => {
   const { type_id, nom, prix, prix_original, description, images_to_delete } = req.body;
   const files = req.files || [];
 
-  // Récupérer l'article actuel pour conserver les images existantes
-  db.get('SELECT image_principale, images FROM articles WHERE id = ?', [req.params.id], (err, currentArticle) => {
+  db.get('SELECT image_principale, images FROM articles WHERE id = ?', [req.params.id], async (err, currentArticle) => {
     if (err) {
       return res.status(500).json({ error: 'Erreur serveur' });
     }
 
-    // Préparer les images existantes (en excluant celles à supprimer)
-    let existingImages = [];
-    let existingImagePrincipale = currentArticle?.image_principale || null;
+    try {
+      let existingImages = [];
+      let existingImagePrincipale = currentArticle?.image_principale || null;
 
-    if (currentArticle) {
-      // Récupérer toutes les images existantes
-      if (currentArticle.image_principale) {
-        existingImages.push(currentArticle.image_principale);
+      if (currentArticle) {
+        if (currentArticle.image_principale) {
+          existingImages.push(currentArticle.image_principale);
+        }
+        if (currentArticle.images) {
+          try {
+            const parsedImages = typeof currentArticle.images === 'string' 
+              ? JSON.parse(currentArticle.images) 
+              : currentArticle.images;
+            if (Array.isArray(parsedImages)) {
+              parsedImages.forEach((img) => {
+                if (img && !existingImages.includes(img)) {
+                  existingImages.push(img);
+                }
+              });
+            }
+          } catch (e) {
+            console.error('Erreur parsing:', e);
+          }
+        }
       }
-      if (currentArticle.images) {
+
+      // Traiter les suppressions
+      let imagesToDelete = [];
+      if (images_to_delete) {
         try {
-          const parsedImages = typeof currentArticle.images === 'string' 
-            ? JSON.parse(currentArticle.images) 
-            : currentArticle.images;
-          if (Array.isArray(parsedImages)) {
-            parsedImages.forEach((img) => {
-              if (img && !existingImages.includes(img)) {
-                existingImages.push(img);
-              }
-            });
-          }
+          imagesToDelete = typeof images_to_delete === 'string' 
+            ? JSON.parse(images_to_delete) 
+            : images_to_delete;
         } catch (e) {
-          console.error('Erreur parsing images:', e);
+          console.error('Erreur parsing delete:', e);
         }
       }
-    }
 
-    // Supprimer les images marquées pour suppression
-    let imagesToDelete = [];
-    if (images_to_delete) {
-      try {
-        imagesToDelete = typeof images_to_delete === 'string' 
-          ? JSON.parse(images_to_delete) 
-          : images_to_delete;
-      } catch (e) {
-        console.error('Erreur parsing images_to_delete:', e);
-      }
-    }
-
-    // Supprimer les fichiers physiques
-    imagesToDelete.forEach((imgUrl) => {
-      try {
-        // Extraire le nom du fichier de l'URL
-        const filename = imgUrl.split('/uploads/')[1];
-        if (filename) {
-          const filePath = path.join(__dirname, '../uploads', filename);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log(`Image supprimée: ${filePath}`);
-          }
+      // Supprimer de Cloudinary
+      for (const imgUrl of imagesToDelete) {
+        try {
+          const publicId = imgUrl.split('/').slice(-1)[0].split('.')[0];
+          await cloudinary.uploader.destroy(`safiya-boutique/articles/${publicId}`);
+          console.log('✅ Image supprimée:', publicId);
+        } catch (error) {
+          console.error('Erreur suppression:', error);
         }
-      } catch (fileErr) {
-        console.error('Erreur lors de la suppression du fichier:', fileErr);
       }
-    });
 
-    // Filtrer les images à conserver
-    existingImages = existingImages.filter(img => !imagesToDelete.includes(img));
-    
-    // Si l'image principale est supprimée, prendre la première image restante
-    if (imagesToDelete.includes(existingImagePrincipale)) {
-      existingImagePrincipale = existingImages.length > 0 ? existingImages[0] : null;
-    }
-
-    // Préparer les nouvelles images
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-    let newImages = [];
-    if (files.length > 0) {
-      newImages = files.map(file => `${baseUrl}/uploads/${file.filename}`);
-    }
-
-    // Combiner les images existantes (non supprimées) avec les nouvelles
-    const finalImages = [...existingImages.filter(img => !newImages.includes(img)), ...newImages];
-    const finalImagePrincipale = newImages.length > 0 ? newImages[0] : existingImagePrincipale;
-
-    // Construire la requête SQL
-    let query = 'UPDATE articles SET type_id = ?, nom = ?, prix = ?, prix_original = ?, description = ?';
-    const params = [type_id, nom, prix, prix_original || null, description || ''];
-
-    // Mettre à jour les images si nécessaire
-    query += ', image_principale = ?, images = ?';
-    params.push(finalImagePrincipale, JSON.stringify(finalImages));
-
-    query += ' WHERE id = ?';
-    params.push(req.params.id);
-
-    db.run(query, params, (err) => {
-      if (err) {
-        console.error('Erreur lors de la mise à jour:', err);
-        return res.status(500).json({ error: 'Erreur serveur' });
+      // Filtrer les images restantes
+      existingImages = existingImages.filter(img => !imagesToDelete.includes(img));
+      if (imagesToDelete.includes(existingImagePrincipale)) {
+        existingImagePrincipale = existingImages.length > 0 ? existingImages[0] : null;
       }
-      res.json({ message: 'Article modifié avec succès' });
-    });
+
+      // Upload les nouvelles images
+      let newImages = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        const imageUrl = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'safiya-boutique/articles',
+              resource_type: 'auto',
+              quality: 'auto',
+              fetch_format: 'auto',
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result.secure_url);
+            }
+          );
+          stream.end(file.buffer);
+        });
+
+        newImages.push(imageUrl);
+      }
+
+      // Combiner les images
+      const finalImages = [...existingImages.filter(img => !newImages.includes(img)), ...newImages];
+      const finalImagePrincipale = newImages.length > 0 ? newImages[0] : existingImagePrincipale;
+
+      // Mettre à jour la DB
+      db.run(`
+        UPDATE articles 
+        SET type_id = ?, nom = ?, prix = ?, prix_original = ?, description = ?, image_principale = ?, images = ? 
+        WHERE id = ?
+      `, [type_id, nom, prix, prix_original || null, description || '', finalImagePrincipale, JSON.stringify(finalImages), req.params.id], function(err) {
+        if (err) {
+          console.error('❌ Erreur modification:', err);
+          return res.status(500).json({ error: 'Erreur serveur' });
+        }
+        console.log('✅ Article modifié:', req.params.id);
+        res.json({ message: 'Article modifié avec succès' });
+      });
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      res.status(500).json({ error: 'Erreur traitement' });
+    }
   });
 });
-
 // Supprimer un article (admin)
 router.delete('/:id', authenticate, (req, res) => {
   db.run('DELETE FROM articles WHERE id = ?', [req.params.id], (err) => {
