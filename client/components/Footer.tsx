@@ -8,10 +8,10 @@ export default function Footer() {
   const [socialLinks, setSocialLinks] = useState({
     tiktok_url: 'https://www.tiktok.com/@safiyaboutique',
     instagram_url: 'https://www.instagram.com/safiyaboutique',
-    whatsapp_url: 'https://wa.me/2250000000000',
-    gmail_url: 'mailto:contact@safiyaboutique.com',
-    tiktok_active: true,
-    instagram_active: true,
+    whatsapp_url: 'https://wa.me/2250505616042',
+    gmail_url: 'mailto:contact.safiyaboutique@gmail.com',
+    tiktok_active: false,
+    instagram_active: false,
     whatsapp_active: true,
     gmail_active: true,
   });
@@ -23,7 +23,7 @@ export default function Footer() {
     const loadSocialLinks = async () => {
       try {
         // Cache-busting pour obtenir les dernières valeurs
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://safiyaboutique-utvv.onrender.com/api/';
         const response = await axios.get(`${apiUrl}/parametres/public?_t=${Date.now()}`);
         const data = response.data;
         const whatsappUrl = data.whatsapp_url || (data.whatsapp_number ? `https://wa.me/${data.whatsapp_number.replace(/\D/g, '')}` : 'https://wa.me/2250000000000');
@@ -66,8 +66,8 @@ export default function Footer() {
         setSocialLinks({
           tiktok_url: data.tiktok_url && data.tiktok_url.trim() !== '' ? data.tiktok_url : 'https://www.tiktok.com/@safiyaboutique',
           instagram_url: data.instagram_url && data.instagram_url.trim() !== '' ? data.instagram_url : 'https://www.instagram.com/safiyaboutique',
-          whatsapp_url: whatsappUrl && whatsappUrl.trim() !== '' ? whatsappUrl : 'https://wa.me/2250000000000',
-          gmail_url: data.gmail_url && data.gmail_url.trim() !== '' ? data.gmail_url : 'mailto:contact@safiyaboutique.com',
+          whatsapp_url: whatsappUrl && whatsappUrl.trim() !== '' ? whatsappUrl : 'https://wa.me/2250505616042',
+          gmail_url: data.gmail_url && data.gmail_url.trim() !== '' ? data.gmail_url : 'mailto:contact.safiyaboutique@gmail.com',
           tiktok_active: data.tiktok_active === '1' || data.tiktok_active === 1,
           instagram_active: data.instagram_active === '1' || data.instagram_active === 1,
           whatsapp_active: data.whatsapp_active === '1' || data.whatsapp_active === 1,
