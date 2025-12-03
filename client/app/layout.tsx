@@ -27,6 +27,11 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: 'SAFIYA BOUTIQUE - Luxe & Élégance',
   description: 'Boutique en ligne de luxe SAFIYA BOUTIQUE - Pagnes de qualité exceptionnelle',
+  // ✅ AJOUTER ICI - Favicon pour Render
+  icons: {
+    icon: 'https://safiyaboutique-utvv.onrender.com/client/public/logo/icon.ico',
+    apple: 'https://safiyaboutique-utvv.onrender.com/client/public/logo/icon.ico',
+  },
 }
 
 export default function RootLayout({
@@ -36,10 +41,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={`${playfair.variable} ${cormorant.variable} ${montserrat.variable}`}>
+      <head>
+        {/* Favicon alternatif */}
+        <link rel="icon" href="https://safiyaboutique-utvv.onrender.com/client/public/logo/icon.ico" type="image/x-icon" />
+      </head>
       <body className="antialiased">
         <PanierProvider>{children}</PanierProvider>
       </body>
     </html>
   )
 }
-
