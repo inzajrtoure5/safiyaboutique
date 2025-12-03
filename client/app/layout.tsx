@@ -29,8 +29,8 @@ export const metadata: Metadata = {
   description: 'Boutique en ligne de luxe SAFIYA BOUTIQUE - Pagnes de qualité exceptionnelle',
   // ✅ AJOUTER ICI - Favicon pour Render
   icons: {
-    icon: 'https://safiyaboutique-utvv.onrender.com/client/public/logo/icon.ico',
-    apple: 'https://safiyaboutique-utvv.onrender.com/client/public/logo/icon.ico',
+    icon: 'https://safiyaboutique-utvv.onrender.com/public/logo/icon.ico',
+    apple: 'https://safiyaboutique-utvv.onrender.com/public/logo/icon.ico',
   },
 }
 
@@ -43,7 +43,7 @@ export default function RootLayout({
     <html lang="fr" className={`${playfair.variable} ${cormorant.variable} ${montserrat.variable}`}>
       <head>
         {/* Favicon alternatif */}
-        <link rel="icon" href="https://safiyaboutique-utvv.onrender.com/client/public/logo/icon.ico" type="image/x-icon" />
+        <link rel="icon" href="https://safiyaboutique-utvv.onrender.com/public/logo/icon.ico" type="image/x-icon" />
       </head>
       <body className="antialiased">
         <PanierProvider>{children}</PanierProvider>
