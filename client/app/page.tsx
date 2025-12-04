@@ -9,7 +9,7 @@ import PackCard from '@/components/PackCard';
 import PackModal from '@/components/PackModal';
 import Maintenance from '@/components/Maintenance';
 import AlerteFetes from '@/components/AlerteFetes';
-import { getArticles, getTypesArticles, enregistrerVisiteur, getPACs, getContenuLegalPublic } from '@/lib/api';
+import { getArticles, getTypesArticles, enregistrerVisiteur, getPackVisiteursPublic, getContenuLegalPublic } from '@/lib/api';
 import { usePanier } from '@/contexts/PanierContext';
 import { Article, Pack } from '../app/type'; // adapte le chemin selon l’emplacement de types.ts
 
@@ -51,12 +51,16 @@ export default function Home() {
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     }).catch((err) => console.error("Erreur visiteur:", err));
 
-    Promise.all([getArticles(), getPACs(), loadAccueilParams()])
-      .then(([articlesRes, packsRes]) => {
-        setArticles(articlesRes.data || []);
-        setPacks((packsRes.data || []).filter((p: Pack) => Number(p.actif) === 1 && p.created_by === 'boutique'));
-        setLoading(false);
-      })
+// ...existing code...
+
+Promise.all([getArticles(), getPackVisiteursPublic(), loadAccueilParams()])
+  .then(([articlesRes, packsRes]) => {
+    setArticles(articlesRes.data || []);
+    setPacks((packsRes.data || []).filter((p: Pack) => Number(p.actif) === 1));
+    setLoading(false);
+  })
+
+// ...existing code...
       .catch((err) => {
         console.error("Erreur lors du chargement:", err);
         setLoading(false);
