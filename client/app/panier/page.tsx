@@ -216,12 +216,12 @@ export default function PanierPage() {
     
     // Calculer les prix
     const prixArticlesNonEligibles = articlesNonEligibles.reduce(
-      (sum, a) => sum + a.prix * (a.quantite || 1),
+      (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
       0
     );
     
     const prixPacksBoutique = packsBoutique.reduce(
-      (sum, a) => sum + a.prix * (a.quantite || 1),
+      (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
       0
     );
     
@@ -386,23 +386,23 @@ export default function PanierPage() {
     });
     
     const prixArticlesNonEligibles = articlesNonEligibles.reduce(
-      (sum, a) => sum + a.prix * (a.quantite || 1),
+      (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
       0
     );
     
     const prixPacksBoutique = packsBoutique.reduce(
-      (sum, a) => sum + a.prix * (a.quantite || 1),
+      (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
       0
     );
     
     const prixArticlesEligibles = packMode ? packPrix : articlesEligibles.reduce(
-      (sum, a) => sum + a.prix * (a.quantite || 1),
+      (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
       0
     );
     
     const sousTotal = prixArticlesEligibles + prixArticlesNonEligibles + prixPacksBoutique;
     const fraisLiv = fraisLivraison.active ? (parseFloat(String(fraisLivraison.montant)) || 0) : 0;
-    const totalCommande = parseFloat(String(sousTotal)) + parseFloat(String(fraisLiv));
+    const totalCommande = sousTotal + fraisLiv;
     panier.forEach((article, index) => {
       const prixArticle = article.prix * (article.quantite || 1);
       const articleId = (article as any).isPack ? (article as any).id : article.id;
@@ -415,7 +415,7 @@ export default function PanierPage() {
     
     if (packMode) {
       const prixOriginalArticlesEligibles = articlesEligibles.reduce(
-        (sum, a) => sum + a.prix * (a.quantite || 1),
+        (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
         0
       );
       const reduction = prixOriginalArticlesEligibles - packPrix;
@@ -800,19 +800,19 @@ export default function PanierPage() {
                   
                   // Calculer le prix original des articles éligibles
                   const prixOriginalArticlesEligibles = articlesEligibles.reduce(
-                    (sum, a) => sum + a.prix * (a.quantite || 1),
+                    (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
                     0
                   );
                   
                   // Calculer le prix des articles non éligibles
                   const prixArticlesNonEligibles = articlesNonEligibles.reduce(
-                    (sum, a) => sum + a.prix * (a.quantite || 1),
+                    (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
                     0
                   );
                   
                   // Calculer le prix des packs boutique
                   const prixPacksBoutique = packsBoutique.reduce(
-                    (sum, a) => sum + a.prix * (a.quantite || 1),
+                    (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
                     0
                   );
                   
@@ -900,17 +900,17 @@ export default function PanierPage() {
                         });
                         
                         const prixArticlesNonEligibles = articlesNonEligibles.reduce(
-                          (sum, a) => sum + a.prix * (a.quantite || 1),
+                          (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
                           0
                         );
                         
                         const prixPacksBoutique = packsBoutique.reduce(
-                          (sum, a) => sum + a.prix * (a.quantite || 1),
+                          (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
                           0
                         );
                         
                         const prixArticlesEligibles = packMode ? packPrix : articlesEligibles.reduce(
-                          (sum, a) => sum + a.prix * (a.quantite || 1),
+                          (sum, a) => sum + Number(a.prix) * (a.quantite || 1),
                           0
                         );
                         
