@@ -13,7 +13,11 @@ const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 }
 
 // Récupérer tous les articles (public)
 router.get('/', (req, res) => {
-  const { type_id, search } = req.query;
+  const { type_id, search, page, limit } = req.query;
+  const pageNum = page ? Math.max(1, parseInt(String(page), 10) || 1) : 1;
+  const limitNum = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 0)) : 0;
+  const usePagination = Boolean(limitNum);
+
   let query = `
     SELECT a.*, t.nom as type_nom 
     FROM articles a 
@@ -35,14 +39,29 @@ router.get('/', (req, res) => {
 
   query += ' ORDER BY a.created_at DESC';
 
+  if (usePagination) {
+    const offset = (pageNum - 1) * limitNum;
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limitNum + 1, offset);
+  }
+
   db.all(query, params, (err, articles) => {
     if (err) {
       return res.status(500).json({ error: 'Erreur serveur' });
     }
-    res.json(articles.map(article => ({
+
+    const mapped = (articles || []).map(article => ({
       ...article,
       images: article.images ? JSON.parse(article.images) : []
-    })));
+    }));
+
+    if (!usePagination) {
+      return res.json(mapped);
+    }
+
+    const hasMore = mapped.length > limitNum;
+    const items = hasMore ? mapped.slice(0, limitNum) : mapped;
+    return res.json({ items, page: pageNum, limit: limitNum, hasMore });
   });
 });
 

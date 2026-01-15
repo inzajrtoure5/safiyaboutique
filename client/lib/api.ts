@@ -7,7 +7,7 @@ const api = axios.create({
 });
 
 // Articles
-export const getArticles = (params?: { type_id?: number; search?: string }) => {
+export const getArticles = (params?: { type_id?: number; search?: string; page?: number; limit?: number }) => {
   return api.get('/articles', { params });
 };
 

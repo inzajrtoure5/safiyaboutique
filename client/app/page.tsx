@@ -9,7 +9,7 @@ import PackCard from '@/components/PackCard';
 import PackModal from '@/components/PackModal';
 import Maintenance from '@/components/Maintenance';
 import AlerteFetes from '@/components/AlerteFetes';
-import { getArticles, getTypesArticles, enregistrerVisiteur, getPACs, getContenuLegalPublic } from '@/lib/api';
+import { getArticles, enregistrerVisiteur, getPACs, getContenuLegalPublic } from '@/lib/api';
 import { usePanier } from '@/contexts/PanierContext';
 import { Article, Pack } from '../app/type'; // adapte le chemin selon l’emplacement de types.ts
 
@@ -18,6 +18,9 @@ export default function Home() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
  const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
   const { ajouterAuPanier } = usePanier();
@@ -51,18 +54,12 @@ export default function Home() {
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     }).catch((err) => console.error("Erreur visiteur:", err));
 
-// ...existing code...
-
-Promise.all([getArticles(), getPACs(), loadAccueilParams()])
-  .then(([articlesRes, packsRes]) => {
-    setArticles(articlesRes.data || []);
-    setPacks((packsRes.data || []).filter((p: Pack) => Number(p.actif) === 1 && p.created_by === 'boutique'));
-  })
-
-// ...existing code...
+    Promise.all([getPACs(), loadAccueilParams()])
+      .then(([packsRes]) => {
+        setPacks((packsRes.data || []).filter((p: Pack) => Number(p.actif) === 1 && p.created_by === 'boutique'));
+      })
       .catch((err) => {
         console.error("Erreur lors du chargement:", err);
-        setLoading(false);
       });
 
     const interval = setInterval(loadAccueilParams, 5000);
@@ -72,18 +69,29 @@ Promise.all([getArticles(), getPACs(), loadAccueilParams()])
   useEffect(() => {
     if (selectedType === -1) {
       setArticles([]);
+      setHasMore(false);
       setLoading(false);
       return;
     }
 
+    const ARTICLES_PAGE_SIZE = 12;
     const params: any = {};
     if (selectedType && selectedType !== -1) params.type_id = selectedType;
     if (searchTerm) params.search = searchTerm;
+    params.page = 1;
+    params.limit = ARTICLES_PAGE_SIZE;
 
     setLoading(true);
+    setLoadingMore(false);
+    setPage(1);
+
     getArticles(params)
       .then((res) => {
-        setArticles(res.data);
+        const data = res.data;
+        const items: Article[] = Array.isArray(data) ? data : (data?.items || []);
+        const nextHasMore = Array.isArray(data) ? false : Boolean(data?.hasMore);
+        setArticles(items);
+        setHasMore(nextHasMore);
         setLoading(false);
       })
       .catch((err) => {
@@ -136,7 +144,7 @@ type PanierItem = Article | (Pack & { isPack: true });
               <h2 className="luxury-title text-2xl md:text-3xl text-[#1A1A1A] mb-4 md:mb-6 font-light px-4 md:px-0">
                 Packs Disponibles
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
                 {packs.map((pack) => (
                   <PackCard key={pack.id} pack={pack} onAcheter={handleAcheterPack} onDetail={handleDetailPack} />
                 ))}
@@ -154,7 +162,7 @@ type PanierItem = Article | (Pack & { isPack: true });
                 <h2 className="luxury-title text-2xl md:text-3xl text-[#1A1A1A] mb-6 font-light px-4 md:px-0">
                   Packs Disponibles
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
                   {packs.map((pack) => (
                     <PackCard key={pack.id} pack={pack} onAcheter={handleAcheterPack} onDetail={handleDetailPack} />
                   ))}
@@ -167,11 +175,49 @@ type PanierItem = Article | (Pack & { isPack: true });
                 <h2 className="luxury-title text-2xl md:text-3xl text-[#1A1A1A] mb-6 font-light px-4 md:px-0">
                   Articles Disponibles
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
                   {articles.map((article) => (
                     <ArticleCard key={article.id} article={article} onAcheter={handleAcheter} onDetail={handleDetail} />
                   ))}
                 </div>
+
+                {hasMore && (
+                  <div className="flex justify-center mt-8">
+                    <button
+                      onClick={() => {
+                        if (loadingMore) return;
+
+                        const nextPage = page + 1;
+                        const params: any = {};
+                        if (selectedType && selectedType !== -1) params.type_id = selectedType;
+                        if (searchTerm) params.search = searchTerm;
+                        params.page = nextPage;
+                        params.limit = 12;
+
+                        setLoadingMore(true);
+                        getArticles(params)
+                          .then((res) => {
+                            const data = res.data;
+                            const items: Article[] = Array.isArray(data) ? data : (data?.items || []);
+                            const nextHasMore = Array.isArray(data) ? false : Boolean(data?.hasMore);
+                            setArticles((prev) => [...prev, ...items]);
+                            setHasMore(nextHasMore);
+                            setPage(nextPage);
+                          })
+                          .catch((err) => {
+                            console.error(err);
+                          })
+                          .finally(() => {
+                            setLoadingMore(false);
+                          });
+                      }}
+                      className="bg-[#1A1A1A] text-white px-6 py-3 rounded-sm hover:bg-[#2A2A2A] transition-all duration-300 font-medium text-xs uppercase tracking-wider disabled:opacity-60"
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? 'Chargement...' : 'Voir plus'}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : selectedType ? (
               <div className="text-center py-20">
