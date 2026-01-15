@@ -45,23 +45,59 @@ router.get('/', (req, res) => {
     params.push(limitNum + 1, offset);
   }
 
-  db.all(query, params, (err, articles) => {
-    if (err) {
+  if (!usePagination) {
+    return db.all(query, params, (err, articles) => {
+      if (err) {
+        return res.status(500).json({ error: 'Erreur serveur' });
+      }
+      const mapped = (articles || []).map(article => ({
+        ...article,
+        images: article.images ? JSON.parse(article.images) : []
+      }));
+      return res.json(mapped);
+    });
+  }
+
+  let countQuery = `
+    SELECT COUNT(*) as total
+    FROM articles a 
+    JOIN types_articles t ON a.type_id = t.id 
+    WHERE a.disponible = 1 AND t.actif = 1
+  `;
+  const countParams = [];
+
+  if (type_id) {
+    countQuery += ' AND a.type_id = ?';
+    countParams.push(type_id);
+  }
+
+  if (search) {
+    countQuery += ' AND a.nom LIKE ?';
+    countParams.push(`%${search}%`);
+  }
+
+  db.get(countQuery, countParams, (countErr, countRow) => {
+    if (countErr) {
       return res.status(500).json({ error: 'Erreur serveur' });
     }
 
-    const mapped = (articles || []).map(article => ({
-      ...article,
-      images: article.images ? JSON.parse(article.images) : []
-    }));
+    const total = Number(countRow?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limitNum));
 
-    if (!usePagination) {
-      return res.json(mapped);
-    }
+    db.all(query, params, (err, articles) => {
+      if (err) {
+        return res.status(500).json({ error: 'Erreur serveur' });
+      }
 
-    const hasMore = mapped.length > limitNum;
-    const items = hasMore ? mapped.slice(0, limitNum) : mapped;
-    return res.json({ items, page: pageNum, limit: limitNum, hasMore });
+      const mapped = (articles || []).map(article => ({
+        ...article,
+        images: article.images ? JSON.parse(article.images) : []
+      }));
+
+      const hasMore = mapped.length > limitNum;
+      const items = hasMore ? mapped.slice(0, limitNum) : mapped;
+      return res.json({ items, page: pageNum, limit: limitNum, hasMore, total, totalPages });
+    });
   });
 });
 

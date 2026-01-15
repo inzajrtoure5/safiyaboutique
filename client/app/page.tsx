@@ -18,9 +18,8 @@ export default function Home() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
  const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
   const { ajouterAuPanier } = usePanier();
@@ -69,7 +68,6 @@ export default function Home() {
   useEffect(() => {
     if (selectedType === -1) {
       setArticles([]);
-      setHasMore(false);
       setLoading(false);
       return;
     }
@@ -82,16 +80,14 @@ export default function Home() {
     params.limit = ARTICLES_PAGE_SIZE;
 
     setLoading(true);
-    setLoadingMore(false);
     setPage(1);
 
     getArticles(params)
       .then((res) => {
         const data = res.data;
         const items: Article[] = Array.isArray(data) ? data : (data?.items || []);
-        const nextHasMore = Array.isArray(data) ? false : Boolean(data?.hasMore);
         setArticles(items);
-        setHasMore(nextHasMore);
+        setTotalPages(Array.isArray(data) ? 1 : Number(data?.totalPages || 1));
         setLoading(false);
       })
       .catch((err) => {
@@ -99,6 +95,32 @@ export default function Home() {
         setLoading(false);
       });
   }, [selectedType, searchTerm]);
+
+  const fetchPage = (nextPage: number) => {
+    const safePage = Math.max(1, Math.min(totalPages || 1, nextPage));
+
+    const ARTICLES_PAGE_SIZE = 12;
+    const params: any = {};
+    if (selectedType && selectedType !== -1) params.type_id = selectedType;
+    if (searchTerm) params.search = searchTerm;
+    params.page = safePage;
+    params.limit = ARTICLES_PAGE_SIZE;
+
+    setLoading(true);
+    getArticles(params)
+      .then((res) => {
+        const data = res.data;
+        const items: Article[] = Array.isArray(data) ? data : (data?.items || []);
+        setArticles(items);
+        setTotalPages(Array.isArray(data) ? 1 : Number(data?.totalPages || 1));
+        setPage(safePage);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
 
 const handleAcheter = (article: Article) => {
   ajouterAuPanier({
@@ -181,41 +203,54 @@ type PanierItem = Article | (Pack & { isPack: true });
                   ))}
                 </div>
 
-                {hasMore && (
-                  <div className="flex justify-center mt-8">
-                    <button
-                      onClick={() => {
-                        if (loadingMore) return;
+                {totalPages > 1 && (
+                  <div className="flex flex-col items-center gap-4 mt-10">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => fetchPage(page - 1)}
+                        disabled={page <= 1 || loading}
+                        className="border border-[#E5E5E5] text-[#1A1A1A] px-4 py-2 rounded-sm hover:bg-[#FAFAFA] transition-all duration-300 text-xs uppercase tracking-wider disabled:opacity-50"
+                      >
+                        Précédent
+                      </button>
 
-                        const nextPage = page + 1;
-                        const params: any = {};
-                        if (selectedType && selectedType !== -1) params.type_id = selectedType;
-                        if (searchTerm) params.search = searchTerm;
-                        params.page = nextPage;
-                        params.limit = 12;
+                      {(() => {
+                        const maxButtons = 5;
+                        const safeTotal = Math.max(1, totalPages);
+                        const start = Math.max(1, Math.min(page - 2, safeTotal - maxButtons + 1));
+                        const end = Math.min(safeTotal, start + maxButtons - 1);
 
-                        setLoadingMore(true);
-                        getArticles(params)
-                          .then((res) => {
-                            const data = res.data;
-                            const items: Article[] = Array.isArray(data) ? data : (data?.items || []);
-                            const nextHasMore = Array.isArray(data) ? false : Boolean(data?.hasMore);
-                            setArticles((prev) => [...prev, ...items]);
-                            setHasMore(nextHasMore);
-                            setPage(nextPage);
-                          })
-                          .catch((err) => {
-                            console.error(err);
-                          })
-                          .finally(() => {
-                            setLoadingMore(false);
-                          });
-                      }}
-                      className="bg-[#1A1A1A] text-white px-6 py-3 rounded-sm hover:bg-[#2A2A2A] transition-all duration-300 font-medium text-xs uppercase tracking-wider disabled:opacity-60"
-                      disabled={loadingMore}
-                    >
-                      {loadingMore ? 'Chargement...' : 'Voir plus'}
-                    </button>
+                        const pagesToShow: number[] = [];
+                        for (let p = start; p <= end; p += 1) pagesToShow.push(p);
+
+                        return pagesToShow.map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => fetchPage(p)}
+                            disabled={loading}
+                            className={
+                              p === page
+                                ? 'bg-[#1A1A1A] text-white w-10 h-10 rounded-sm font-semibold text-sm'
+                                : 'border border-[#E5E5E5] text-[#1A1A1A] w-10 h-10 rounded-sm hover:bg-[#FAFAFA] transition-all duration-300 text-sm'
+                            }
+                          >
+                            {p}
+                          </button>
+                        ));
+                      })()}
+
+                      <button
+                        onClick={() => fetchPage(page + 1)}
+                        disabled={page >= totalPages || loading}
+                        className="border border-[#E5E5E5] text-[#1A1A1A] px-4 py-2 rounded-sm hover:bg-[#FAFAFA] transition-all duration-300 text-xs uppercase tracking-wider disabled:opacity-50"
+                      >
+                        Suivant
+                      </button>
+                    </div>
+
+                    <div className="text-xs text-[#8B7355] luxury-text">
+                      Page {page} / {totalPages}
+                    </div>
                   </div>
                 )}
               </div>
