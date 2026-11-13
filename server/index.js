@@ -36,17 +36,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Fichiers statiques
-
 app.use('/logo', express.static(path.join(__dirname, '../LOGO')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ✅ AJOUTER UNE ROUTE DE DIAGNOSTIC
 app.get('/api/diagnostic/uploads', (req, res) => {
   const fs = require('fs');
   const uploadsPath = path.join(__dirname, 'uploads');
-  
+
   const exists = fs.existsSync(uploadsPath);
   const files = exists ? fs.readdirSync(uploadsPath).slice(0, 10) : [];
-  
+
   res.json({
     uploadsPath,
     exists,
