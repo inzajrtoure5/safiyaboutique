@@ -469,15 +469,34 @@ export default function PanierPage() {
         </div>
 
         {panier.length === 0 ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-16 text-center border border-[#E8E0D5]">
-            <div className="max-w-md mx-auto">
-              <div className="text-6xl mb-6">🛍️</div>
-              <p className="luxury-text text-xl text-[#8B6F47] mb-4">Votre panier est vide</p>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-12 md:p-16 text-center border border-[#E8E0D5]">
+            <div className="max-w-md mx-auto flex flex-col items-center">
+              <div className="w-20 h-20 rounded-full bg-[#FAF7F2] border border-[#E8E0D5] flex items-center justify-center mb-6 shadow-inner">
+                <svg
+                  className="w-9 h-9 text-[#8B6F47]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.3}
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                  />
+                </svg>
+              </div>
+              <h2 className="luxury-title text-2xl text-[#1A1A1A] font-light mb-2">
+                Votre panier est vide
+              </h2>
+              <p className="luxury-text text-sm text-[#8B7355] mb-8 font-light max-w-sm">
+                Explorez notre collection et laissez-vous séduire par nos créations uniques.
+              </p>
               <Link
                 href="/"
-                className="inline-block luxury-text text-sm uppercase tracking-wider bg-gradient-to-r from-[#D4AF37] to-[#B8860B] text-white px-8 py-3 rounded-lg hover:from-[#B8860B] hover:to-[#9A7209] transition-all duration-300 shadow-md hover:shadow-lg"
+                className="inline-block luxury-text text-xs uppercase tracking-widest bg-[#1A1A1A] text-white px-8 py-3.5 rounded-sm hover:bg-[#2A2A2A] transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                Découvrir nos produits
+                Découvrir la collection
               </Link>
             </div>
           </div>
