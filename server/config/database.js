@@ -20,34 +20,34 @@ const pool = mysql.createPool(config);
 // Fonction pour convertir les requêtes SQLite en MySQL
 const convertSQLiteToMySQL = (sql) => {
   if (!sql || typeof sql !== 'string') return sql;
-  
+
   let converted = sql;
-  
+
   // Convertir datetime("now") en NOW()
   converted = converted.replace(/datetime\s*\(\s*["']now["']\s*\)/gi, 'NOW()');
-  
+
   // Convertir CURRENT_TIMESTAMP si utilisé dans les valeurs
   converted = converted.replace(/CURRENT_TIMESTAMP/gi, 'NOW()');
-  
+
   // Convertir INSERT OR IGNORE en INSERT IGNORE
   converted = converted.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT IGNORE');
-  
+
   // Convertir INSERT OR REPLACE en INSERT ... ON DUPLICATE KEY UPDATE
-  converted = converted.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/gi, 
+  converted = converted.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/gi,
     (match, table, columns, values) => {
       const cols = columns.split(',').map(c => c.trim());
       const updates = cols.map(col => `${col} = VALUES(${col})`).join(', ');
       return `INSERT INTO ${table} (${columns}) VALUES (${values}) ON DUPLICATE KEY UPDATE ${updates}`;
     });
-  
+
   // Convertir INTEGER PRIMARY KEY AUTOINCREMENT en INT AUTO_INCREMENT PRIMARY KEY (déjà fait dans les CREATE TABLE)
   // Convertir REAL en DECIMAL(10,2) pour les prix (déjà fait dans les CREATE TABLE)
-  
+
   // Convertir les comparaisons avec NULL (SQLite accepte = NULL, MySQL nécessite IS NULL)
   converted = converted.replace(/\s+=\s+NULL\b/gi, ' IS NULL');
   converted = converted.replace(/\s+!=\s+NULL\b/gi, ' IS NOT NULL');
   converted = converted.replace(/\s+<>\s+NULL\b/gi, ' IS NOT NULL');
-  
+
   // Convertir PRAGMA table_info en SHOW COLUMNS FROM (pour MySQL)
   // Note: Cette conversion nécessite un traitement spécial dans le wrapper db.get/db.all
   if (converted.includes('PRAGMA table_info')) {
@@ -57,7 +57,7 @@ const convertSQLiteToMySQL = (sql) => {
       converted = `SHOW COLUMNS FROM ${tableName}`;
     }
   }
-  
+
   return converted;
 };
 
@@ -65,7 +65,7 @@ const convertSQLiteToMySQL = (sql) => {
 const query = async (sql, params = []) => {
   try {
     const convertedSQL = convertSQLiteToMySQL(sql);
-    const [results] = await pool.execute(convertedSQL, params);
+    const [results] = await pool.query(convertedSQL, params);
     return results;
   } catch (err) {
     console.error('Erreur MySQL:', err);
@@ -246,7 +246,7 @@ const init = async () => {
       'Plateau', 'Port-Bouët', 'Treichville', 'Yopougon', 'Anyama',
       'Bingerville', 'Songon', 'Autre commune d\'Abidjan', 'Autre ville de Côte d\'Ivoire'
     ];
-    
+
     await query(`CREATE TABLE IF NOT EXISTS frais_livraison_communes (
       id INT AUTO_INCREMENT PRIMARY KEY,
       commune VARCHAR(255) UNIQUE NOT NULL,
@@ -336,7 +336,7 @@ const db = {
       callback = params;
       params = [];
     }
-    
+
     // Traitement spécial pour PRAGMA table_info -> SHOW COLUMNS
     if (sql.includes('PRAGMA table_info')) {
       const tableMatch = sql.match(/PRAGMA\s+table_info\s*\(\s*(\w+)\s*\)/i);
@@ -361,7 +361,7 @@ const db = {
         return;
       }
     }
-    
+
     const convertedSQL = convertSQLiteToMySQL(sql);
     get(convertedSQL, params || [])
       .then(result => {
@@ -376,7 +376,7 @@ const db = {
       callback = params;
       params = [];
     }
-    
+
     // Traitement spécial pour PRAGMA table_info -> SHOW COLUMNS
     if (sql.includes('PRAGMA table_info')) {
       const tableMatch = sql.match(/PRAGMA\s+table_info\s*\(\s*(\w+)\s*\)/i);
@@ -401,7 +401,7 @@ const db = {
         return;
       }
     }
-    
+
     const convertedSQL = convertSQLiteToMySQL(sql);
     all(convertedSQL, params || [])
       .then(results => {
