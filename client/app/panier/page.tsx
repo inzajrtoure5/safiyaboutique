@@ -861,20 +861,28 @@ export default function PanierPage() {
                   );
                 })()}
                 {!formData.commune && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="luxury-text text-xs text-amber-700 font-medium">
-                      🚚 Frais de livraison : Veuillez d'abord sélectionner la commune de livraison
+                  <div className="flex items-center gap-2 p-3 bg-[#FAF7F2] border border-[#E8E0D5] rounded-lg">
+                    <svg className="w-4 h-4 text-[#8B7355] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a2 2 0 104 0m-10 0a2 2 0 104 0" />
+                    </svg>
+                    <p className="luxury-text text-xs text-[#8B7355]">
+                      Veuillez sélectionner la commune de livraison pour le calcul des frais.
                     </p>
                   </div>
                 )}
                 {formData.commune && (
-                  <p className="flex justify-between luxury-text text-[#5C4033]">
-                    <span>🚚 Frais de livraison:</span>
+                  <p className="flex justify-between items-center luxury-text text-[#5C4033]">
+                    <span className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-[#8B7355] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a2 2 0 104 0m-10 0a2 2 0 104 0" />
+                      </svg>
+                      <span>Frais de livraison:</span>
+                    </span>
                     <span className="font-semibold">
                       {fraisLivraison.active && fraisLivraison.montant > 0 ? (
                         <span>{fraisLivraison.montant.toLocaleString()} FCFA</span>
                       ) : (
-                        <span className="text-gray-400 italic">Calcul en cours...</span>
+                        <span className="text-gray-400 italic text-xs">Calcul en cours...</span>
                       )}
                     </span>
                   </p>
@@ -1107,12 +1115,17 @@ export default function PanierPage() {
                       </label>
                       {communes && communes.length > 0 ? (
                         <>
-                          {/* Message initial pour les frais de livraison */}
-                          <div className="mb-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                            <p className="luxury-text text-sm text-amber-700 font-medium">
-                              🚚 Frais de livraison : Veuillez d'abord sélectionner la commune de livraison
-                            </p>
-                          </div>
+                          {/* Message d'information avant sélection */}
+                          {!formData.commune && (
+                            <div className="mb-2.5 flex items-center gap-2 p-3 bg-[#FAF7F2] border border-[#E8E0D5] rounded-lg">
+                              <svg className="w-4 h-4 text-[#8B7355] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a2 2 0 104 0m-10 0a2 2 0 104 0" />
+                              </svg>
+                              <p className="luxury-text text-xs text-[#8B7355]">
+                                Veuillez sélectionner votre commune pour afficher les frais de livraison.
+                              </p>
+                            </div>
+                          )}
                           <select
                             value={formData.commune}
                             onChange={async (e) => {
@@ -1152,15 +1165,21 @@ export default function PanierPage() {
                             ))}
                           </select>
                           {formData.commune && fraisLivraison.active && fraisLivraison.montant > 0 && (
-                            <p className="mt-2 luxury-text text-sm text-green-600 font-semibold">
-                              ✅ Frais de livraison: {fraisLivraison.montant.toLocaleString()} FCFA
-                            </p>
+                            <div className="mt-2 flex items-center gap-1.5 luxury-text text-sm text-[#2E7D32]">
+                              <svg className="w-4 h-4 text-[#2E7D32] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span className="font-medium">Frais de livraison : {fraisLivraison.montant.toLocaleString()} FCFA</span>
+                            </div>
                           )}
                         </>
                       ) : (
-                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="luxury-text text-sm text-red-700 font-medium">
-                            ⚠️ Aucune commune de livraison disponible pour le moment. Veuillez contacter le service client.
+                        <div className="p-4 bg-red-50/70 border border-red-200 rounded-lg flex items-start gap-2.5">
+                          <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <p className="luxury-text text-sm text-red-700">
+                            Aucune commune de livraison disponible pour le moment. Veuillez contacter le service client.
                           </p>
                         </div>
                       )}
