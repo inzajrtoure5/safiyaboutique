@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '@/lib/config';
 
 export default function AlerteFetes() {
   const [isActive, setIsActive] = useState(false);
@@ -12,8 +13,7 @@ export default function AlerteFetes() {
   useEffect(() => {
     const loadAlerte = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const response = await axios.get(`${apiUrl}/parametres/public`);
+        const response = await axios.get(`${API_URL}/parametres/public`);
         console.log('Alerte fêtes check response:', response.data);
         
         // Vérification STRICTE : seulement '1' signifie actif, tout le reste est inactif

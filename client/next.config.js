@@ -8,13 +8,13 @@ module.exports = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: 'localhost',
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
         pathname: '/**',
       },
       {
         protocol: 'http',
-        hostname: 'localhost:5000',
+        hostname: 'localhost',
         pathname: '/**',
       },
     ],

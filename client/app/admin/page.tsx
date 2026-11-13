@@ -44,6 +44,7 @@ import {
   deleteContenuLegal,
   getContenuLegalPublic,
 } from '@/lib/api';
+import { BASE_URL, API_URL } from '@/lib/config';
 import ArticleForm from './components/ArticleForm';
 
 import QuillEditor from '@/components/QuillEditor';
@@ -877,7 +878,7 @@ const [newPack, setNewPack] = useState<Pack>({
                           <img 
                             src={article.image_principale?.startsWith('http') 
                               ? article.image_principale 
-                              : article.image_principale ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${article.image_principale}` : ''}
+                              : article.image_principale ? `${BASE_URL}${article.image_principale}` : ''}
                             alt={article.nom}
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -1026,7 +1027,7 @@ const [newPack, setNewPack] = useState<Pack>({
                               <img 
                                 src={article.image_principale?.startsWith('http') 
                                   ? article.image_principale 
-                                  : article.image_principale ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${article.image_principale}` : ''}
+                                  : article.image_principale ? `${BASE_URL}${article.image_principale}` : ''}
                                 alt={article.nom}
                                 className="w-16 h-16 object-cover rounded border"
                                 onError={(e) => {
@@ -1248,8 +1249,7 @@ const [newPack, setNewPack] = useState<Pack>({
                               onClick={async () => {
                                 try {
                                   // Toggle actif/inactif
-                                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-                                  const response = await fetch(`${apiUrl}/types-articles/${type.id}`, {
+                                  const response = await fetch(`${API_URL}/types-articles/${type.id}`, {
                                     method: 'PUT',
                                     headers: {
                                       'Content-Type': 'application/json',

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL, BASE_URL } from '@/lib/config';
 
 export default function Maintenance() {
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -26,7 +27,7 @@ export default function Maintenance() {
       }
 
       try {
-        const response = await axios.get('http://localhost:5000/api/parametres/public', {
+        const response = await axios.get(`${API_URL}/parametres/public`, {
           // Ajouter un cache-busting pour éviter les problèmes de cache
           params: { _t: Date.now() }
         });
@@ -116,7 +117,7 @@ export default function Maintenance() {
               style={{ maxWidth: '200px' }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.src = 'http://localhost:5000/logo/LOGO.png';
+                target.src = `${BASE_URL}/logo/LOGO.png`;
                 target.onerror = () => {
                   console.error('Logo non trouvé');
                   target.style.display = 'none';

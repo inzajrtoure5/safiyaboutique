@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import axios from 'axios';
+import { API_URL } from '@/lib/config';
 
 export default function ContactezNousPage() {
   const [socialLinks, setSocialLinks] = useState({
@@ -23,8 +24,7 @@ export default function ContactezNousPage() {
   useEffect(() => {
     const loadContact = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const response = await axios.get(`${apiUrl}/parametres/public?_t=${Date.now()}`);
+        const response = await axios.get(`${API_URL}/parametres/public?_t=${Date.now()}`);
         const data = response.data;
         const whatsappUrl = data.whatsapp_url || (data.whatsapp_number ? `https://wa.me/${data.whatsapp_number.replace(/\D/g, '')}` : '');
         

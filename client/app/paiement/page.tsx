@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { API_URL } from '@/lib/config';
 
 
 
@@ -18,8 +19,7 @@ function PaiementContent() {
     if (total) {
       setLoading(true);
       // Générer le lien de paiement WAVE
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      fetch(`${baseUrl}/api/wave/generer-paiement?montant=${total}`)
+      fetch(`${API_URL}/wave/generer-paiement?montant=${total}`)
         .then(res => res.json())
         .then(data => {
           if (data.lien) setLienPaiement(data.lien);

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL, BASE_URL } from '@/lib/config';
 
 export default function Footer() {
   const [socialLinks, setSocialLinks] = useState({
@@ -23,8 +24,7 @@ export default function Footer() {
     const loadSocialLinks = async () => {
       try {
         // Cache-busting pour obtenir les dernières valeurs
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://safiyaboutique-utvv.onrender.com/api/';
-        const response = await axios.get(`${apiUrl}/parametres/public?_t=${Date.now()}`);
+        const response = await axios.get(`${API_URL}/parametres/public?_t=${Date.now()}`);
         const data = response.data;
         const whatsappUrl = data.whatsapp_url || (data.whatsapp_number ? `https://wa.me/${data.whatsapp_number.replace(/\D/g, '')}` : 'https://wa.me/2250000000000');
         
@@ -58,8 +58,7 @@ export default function Footer() {
     // Vérification périodique des paramètres (comme pour maintenance)
     const checkSocialLinks = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const response = await axios.get(`${apiUrl}/parametres/public?_t=${Date.now()}`);
+        const response = await axios.get(`${API_URL}/parametres/public?_t=${Date.now()}`);
         const data = response.data;
         const whatsappUrl = data.whatsapp_url || (data.whatsapp_number ? `https://wa.me/${data.whatsapp_number.replace(/\D/g, '')}` : 'https://wa.me/2250000000000');
         
@@ -99,7 +98,7 @@ export default function Footer() {
                 onError={(e) => {
                   console.error('Erreur de chargement du logo dans le footer, essai avec chemin serveur...');
                   const target = e.target as HTMLImageElement;
-                  target.src = 'http://localhost:5000/logo/LOGO.png';
+                  target.src = `${BASE_URL}/logo/LOGO.png`;
                   target.onerror = () => {
                     console.error('Échec du chargement du logo');
                     target.style.display = 'none';

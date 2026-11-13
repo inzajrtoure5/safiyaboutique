@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import axios from 'axios';
+import { API_URL } from '@/lib/config';
 
 
 
@@ -18,8 +19,7 @@ export default function BoutiquesPage() {
   useEffect(() => {
     const loadBoutiques = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const response = await axios.get(`${apiUrl}/parametres/public?_t=${Date.now()}`);
+        const response = await axios.get(`${API_URL}/parametres/public?_t=${Date.now()}`);
         const data = response.data;
         
         setBoutiquesData({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { creerArticle, updateArticle, getTypesArticlesAdmin } from '@/lib/api';
+import { BASE_URL } from '@/lib/config';
 
 interface ArticleFormProps {
   article?: any;
@@ -220,7 +221,7 @@ export default function ArticleForm({ article, onClose, onSuccess, token, onSwit
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
                   {existingImages.map((imgUrl, index) => {
                     if (imagesToDelete.includes(imgUrl)) return null;
-                    const fullUrl = imgUrl.startsWith('http') ? imgUrl : `http://localhost:5000${imgUrl}`;
+                    const fullUrl = imgUrl.startsWith('http') ? imgUrl : `${BASE_URL}${imgUrl}`;
                     return (
                       <div key={index} className="relative group">
                         <img
@@ -229,8 +230,8 @@ export default function ArticleForm({ article, onClose, onSuccess, token, onSwit
                           className="w-full h-32 object-cover rounded border"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            if (!target.src.includes('localhost:5000') && !target.src.startsWith('http')) {
-                              target.src = `http://localhost:5000${imgUrl}`;
+                            if (!target.src.startsWith('http')) {
+                              target.src = `${BASE_URL}${imgUrl}`;
                             }
                           }}
                         />
