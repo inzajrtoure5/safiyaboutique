@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   login,
@@ -108,6 +108,13 @@ const [newPack, setNewPack] = useState<Pack>({
     date_fin: '',
     heure: ''
   });
+  const [searchIpVisiteur, setSearchIpVisiteur] = useState('');
+  const [filtreAppareil, setFiltreAppareil] = useState('all');
+  const [filtreNavigateur, setFiltreNavigateur] = useState('all');
+  const [filtreStatutClient, setFiltreStatutClient] = useState('all');
+  const [vueVisites, setVueVisites] = useState<'details' | 'grouped'>('details');
+  const [selectedIpVisites, setSelectedIpVisites] = useState<{ ip: string; visites: any[] } | null>(null);
+  const [visiteDetailModal, setVisiteDetailModal] = useState<any | null>(null);
   const [filtreCommandes, setFiltreCommandes] = useState({
     periode: 'semaine',
     date_debut: '',
@@ -130,6 +137,123 @@ const [newPack, setNewPack] = useState<Pack>({
     nombre_articles: 3,
     actif: true
   });
+
+  const parseVisiteurUA = (userAgent: string = '') => {
+    let navigateur = 'Inconnu';
+    let appareil = 'Desktop';
+    
+    if (userAgent) {
+      if (userAgent.includes('Edg')) navigateur = 'Edge';
+      else if (userAgent.includes('Chrome')) navigateur = 'Chrome';
+      else if (userAgent.includes('Firefox')) navigateur = 'Firefox';
+      else if (userAgent.includes('Safari')) navigateur = 'Safari';
+      else if (userAgent.includes('Opera') || userAgent.includes('OPR')) navigateur = 'Opera';
+      
+      if (userAgent.includes('Tablet') || userAgent.includes('iPad')) appareil = 'Tablette';
+      else if (userAgent.includes('Mobile') || userAgent.includes('Android') || userAgent.includes('iPhone')) appareil = 'Mobile';
+      else appareil = 'Desktop';
+    }
+    
+    return { navigateur, appareil };
+  };
+
+  const { visiteursFiltres, ipGroupes, statsVisites } = useMemo(() => {
+    const filtres = (visiteurs || []).filter((visiteur) => {
+      const { navigateur, appareil } = parseVisiteurUA(visiteur.user_agent || '');
+      
+      if (searchIpVisiteur.trim()) {
+        const search = searchIpVisiteur.trim().toLowerCase();
+        const ip = (visiteur.ip || '').toLowerCase();
+        const nomComplet = `${visiteur.nom || ''} ${visiteur.prenom || ''}`.toLowerCase();
+        if (!ip.includes(search) && !nomComplet.includes(search)) {
+          return false;
+        }
+      }
+      
+      if (filtreAppareil !== 'all' && appareil !== filtreAppareil) {
+        return false;
+      }
+      
+      if (filtreNavigateur !== 'all' && navigateur !== filtreNavigateur) {
+        return false;
+      }
+      
+      const hasCommande = !!(visiteur.nom && visiteur.prenom);
+      if (filtreStatutClient === 'commande' && !hasCommande) return false;
+      if (filtreStatutClient === 'anonyme' && hasCommande) return false;
+      
+      return true;
+    });
+
+    const map = new Map<string, {
+      ip: string;
+      count: number;
+      nom?: string;
+      prenom?: string;
+      hasCommande: boolean;
+      localisation: string;
+      derniereVisite: string;
+      appareils: Record<string, number>;
+      navigateurs: Record<string, number>;
+      visites: any[];
+    }>();
+
+    let totalMobiles = 0;
+    let totalDesktop = 0;
+    let totalTablettes = 0;
+
+    filtres.forEach((v) => {
+      const ip = v.ip || 'Inconnue';
+      const { navigateur, appareil } = parseVisiteurUA(v.user_agent || '');
+      
+      if (appareil === 'Mobile') totalMobiles++;
+      else if (appareil === 'Desktop') totalDesktop++;
+      else if (appareil === 'Tablette') totalTablettes++;
+
+      if (!map.has(ip)) {
+        map.set(ip, {
+          ip,
+          count: 0,
+          nom: v.nom,
+          prenom: v.prenom,
+          hasCommande: !!(v.nom && v.prenom),
+          localisation: v.localisation || 'Inconnue',
+          derniereVisite: v.visited_at,
+          appareils: {},
+          navigateurs: {},
+          visites: [],
+        });
+      }
+
+      const item = map.get(ip)!;
+      item.count += 1;
+      item.visites.push(v);
+      if (!item.hasCommande && v.nom && v.prenom) {
+        item.nom = v.nom;
+        item.prenom = v.prenom;
+        item.hasCommande = true;
+      }
+      if (new Date(v.visited_at) > new Date(item.derniereVisite)) {
+        item.derniereVisite = v.visited_at;
+      }
+      item.appareils[appareil] = (item.appareils[appareil] || 0) + 1;
+      item.navigateurs[navigateur] = (item.navigateurs[navigateur] || 0) + 1;
+    });
+
+    const groupes = Array.from(map.values()).sort((a, b) => b.count - a.count);
+
+    return {
+      visiteursFiltres: filtres,
+      ipGroupes: groupes,
+      statsVisites: {
+        total: filtres.length,
+        uniques: groupes.length,
+        mobiles: totalMobiles,
+        desktop: totalDesktop,
+        tablettes: totalTablettes
+      }
+    };
+  }, [visiteurs, searchIpVisiteur, filtreAppareil, filtreNavigateur, filtreStatutClient]);
 
   // Charger les données du pack sélectionné pour modification
   useEffect(() => {
@@ -2412,16 +2536,100 @@ setSelectedPackVisiteur(null);
         {/* Visites */}
         {activeTab === 'visites' && (
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-[#E8E0D5] p-4 sm:p-6 md:p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="luxury-title text-3xl text-[#3D2817]">Visites ({visiteurs.length})</h2>
+            {/* En-tête avec titre et bascule de vue */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <h2 className="luxury-title text-3xl text-[#3D2817]">Visites</h2>
+                <p className="luxury-text text-xs text-[#8B6F47] mt-1">
+                  Analyse d'audience, fréquence par adresse IP et détection des appareils
+                </p>
+              </div>
+
+              {/* Bouton de bascule Vue Chronologique vs Vue par IP */}
+              <div className="flex items-center bg-[#FAF7F0] p-1 rounded-xl border border-[#E8E0D5]">
+                <button
+                  type="button"
+                  onClick={() => setVueVisites('details')}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+                    vueVisites === 'details'
+                      ? 'bg-[#3D2817] text-white shadow-sm'
+                      : 'text-[#8B6F47] hover:text-[#3D2817]'
+                  }`}
+                >
+                  Vue détaillée ({visiteursFiltres.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVueVisites('grouped')}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+                    vueVisites === 'grouped'
+                      ? 'bg-[#3D2817] text-white shadow-sm'
+                      : 'text-[#8B6F47] hover:text-[#3D2817]'
+                  }`}
+                >
+                  Par adresse IP ({ipGroupes.length})
+                </button>
+              </div>
+            </div>
+
+            {/* Cartes statistiques rapides */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+              <div className="p-4 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl border border-[#E8E0D5]">
+                <p className="text-[11px] uppercase tracking-wider font-medium text-[#8B6F47] mb-1">Total Visites</p>
+                <p className="luxury-title text-2xl sm:text-3xl font-light text-[#3D2817]">{statsVisites.total}</p>
+                <p className="text-[10px] text-[#A89078] mt-1">période sélectionnée</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl border border-[#E8E0D5]">
+                <p className="text-[11px] uppercase tracking-wider font-medium text-[#8B6F47] mb-1">IPs Uniques</p>
+                <p className="luxury-title text-2xl sm:text-3xl font-light text-[#3D2817]">{statsVisites.uniques}</p>
+                <p className="text-[10px] text-[#A89078] mt-1">visiteurs distincts</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl border border-[#E8E0D5]">
+                <p className="text-[11px] uppercase tracking-wider font-medium text-[#8B6F47] mb-1">Mobiles (Téléphone)</p>
+                <p className="luxury-title text-2xl sm:text-3xl font-light text-[#2E7D32]">
+                  {statsVisites.mobiles}
+                  <span className="text-xs font-normal text-[#2E7D32]/80 ml-1.5">
+                    ({statsVisites.total > 0 ? Math.round((statsVisites.mobiles / statsVisites.total) * 100) : 0}%)
+                  </span>
+                </p>
+                <p className="text-[10px] text-[#A89078] mt-1">smartphones</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl border border-[#E8E0D5]">
+                <p className="text-[11px] uppercase tracking-wider font-medium text-[#8B6F47] mb-1">Ordinateurs (Desktop)</p>
+                <p className="luxury-title text-2xl sm:text-3xl font-light text-[#1565C0]">
+                  {statsVisites.desktop}
+                  <span className="text-xs font-normal text-[#1565C0]/80 ml-1.5">
+                    ({statsVisites.total > 0 ? Math.round((statsVisites.desktop / statsVisites.total) * 100) : 0}%)
+                  </span>
+                </p>
+                <p className="text-[10px] text-[#A89078] mt-1">postes fixes et portables</p>
+              </div>
             </div>
             
-            {/* Filtres */}
-            <div className="mb-6 p-6 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl border border-[#E8E0D5]">
-              <h3 className="luxury-title text-xl text-[#3D2817] mb-4">Filtres</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Section Filtres */}
+            <div className="mb-6 p-5 sm:p-6 bg-gradient-to-br from-[#FAF7F0] to-[#F5F1EB] rounded-xl border border-[#E8E0D5] space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="luxury-title text-lg text-[#3D2817]">Filtres d'analyse</h3>
+                {(searchIpVisiteur || filtreAppareil !== 'all' || filtreNavigateur !== 'all' || filtreStatutClient !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchIpVisiteur('');
+                      setFiltreAppareil('all');
+                      setFiltreNavigateur('all');
+                      setFiltreStatutClient('all');
+                    }}
+                    className="text-xs text-[#B8860B] hover:text-[#9A7209] underline font-medium"
+                  >
+                    Réinitialiser les filtres rapides
+                  </button>
+                )}
+              </div>
+
+              {/* Ligne 1 : Période & Heure (BD) */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 pt-1">
                 <div>
-                  <label className="block mb-2 luxury-text text-[#5C4033] text-sm">Période</label>
+                  <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">Période (BD)</label>
                   <select
                     value={filtreVisiteurs.periode}
                     onChange={(e) => {
@@ -2431,7 +2639,7 @@ setSelectedPackVisiteur(null);
                         getVisiteurs(token, newFiltre).then(res => setVisiteurs(res.data)).catch(console.error);
                       }
                     }}
-                    className="w-full px-4 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text bg-white"
+                    className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
                   >
                     <option value="semaine">Cette semaine (7 jours)</option>
                     <option value="aujourdhui">Aujourd'hui</option>
@@ -2444,148 +2652,486 @@ setSelectedPackVisiteur(null);
                 {filtreVisiteurs.periode === 'custom' && (
                   <>
                     <div>
-                      <label className="block mb-2 luxury-text text-[#5C4033] text-sm">Date début</label>
+                      <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">Date début</label>
                       <input
                         type="date"
                         value={filtreVisiteurs.date_debut}
                         onChange={(e) => setFiltreVisiteurs({ ...filtreVisiteurs, date_debut: e.target.value })}
-                        className="w-full px-4 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text bg-white"
+                        className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
                       />
                     </div>
                     <div>
-                      <label className="block mb-2 luxury-text text-[#5C4033] text-sm">Date fin</label>
+                      <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">Date fin</label>
                       <input
                         type="date"
                         value={filtreVisiteurs.date_fin}
                         onChange={(e) => setFiltreVisiteurs({ ...filtreVisiteurs, date_fin: e.target.value })}
-                        className="w-full px-4 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text bg-white"
+                        className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
                       />
                     </div>
-                    <div>
-                      <label className="block mb-2 luxury-text text-[#5C4033] text-sm">&nbsp;</label>
+                    <div className="flex items-end">
                       <button
+                        type="button"
                         onClick={() => {
                           if (token) {
                             getVisiteurs(token, { periode: 'custom', date_debut: filtreVisiteurs.date_debut, date_fin: filtreVisiteurs.date_fin }).then(res => setVisiteurs(res.data)).catch(console.error);
                           }
                         }}
-                        className="w-full luxury-text text-sm uppercase tracking-wider bg-gradient-to-r from-[#D4AF37] to-[#B8860B] text-white px-4 py-2 rounded-lg hover:from-[#B8860B] hover:to-[#9A7209] transition-all duration-300 shadow-md font-semibold"
+                        className="w-full luxury-text text-xs uppercase tracking-wider bg-gradient-to-r from-[#D4AF37] to-[#B8860B] text-white px-4 py-2.5 rounded-lg hover:from-[#B8860B] hover:to-[#9A7209] transition-all duration-300 shadow-md font-semibold"
                       >
-                        Appliquer
+                        Charger
                       </button>
                     </div>
                   </>
                 )}
                 
                 <div>
-                  <label className="block mb-2 luxury-text text-[#5C4033] text-sm">Filtrer par heure (optionnel)</label>
+                  <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">Heure précise (optionnel)</label>
                   <input
                     type="number"
                     min="0"
                     max="23"
                     value={filtreVisiteurs.heure}
                     onChange={(e) => setFiltreVisiteurs({ ...filtreVisiteurs, heure: e.target.value })}
-                    placeholder="0-23"
-                    className="w-full px-4 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text bg-white"
+                    placeholder="0 à 23"
+                    className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
                   />
                 </div>
                 
                 {filtreVisiteurs.periode !== 'custom' && (
                   <div className="flex items-end">
                     <button
+                      type="button"
                       onClick={() => {
                         if (token) {
                           getVisiteurs(token, filtreVisiteurs).then(res => setVisiteurs(res.data)).catch(console.error);
                         }
                       }}
-                      className="w-full luxury-text text-sm uppercase tracking-wider bg-gradient-to-r from-[#D4AF37] to-[#B8860B] text-white px-4 py-2 rounded-lg hover:from-[#B8860B] hover:to-[#9A7209] transition-all duration-300 shadow-md font-semibold"
+                      className="w-full luxury-text text-xs uppercase tracking-wider bg-gradient-to-r from-[#D4AF37] to-[#B8860B] text-white px-4 py-2.5 rounded-lg hover:from-[#B8860B] hover:to-[#9A7209] transition-all duration-300 shadow-md font-semibold"
                     >
-                      Appliquer
+                      Actualiser
                     </button>
                   </div>
                 )}
               </div>
+
+              {/* Ligne 2 : Nouveaux Filtres Instantanés (Recherche IP, Appareil, Navigateur, Statut) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-2 border-t border-[#E8E0D5]">
+                {/* Recherche IP / Nom */}
+                <div>
+                  <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">
+                    Filtrer par IP ou Nom
+                  </label>
+                  <input
+                    type="text"
+                    value={searchIpVisiteur}
+                    onChange={(e) => setSearchIpVisiteur(e.target.value)}
+                    placeholder="Ex: 192.168... ou Amina"
+                    className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
+                  />
+                </div>
+
+                {/* Filtre Appareil (Mobile vs Desktop) */}
+                <div>
+                  <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">
+                    Type d'appareil
+                  </label>
+                  <select
+                    value={filtreAppareil}
+                    onChange={(e) => setFiltreAppareil(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
+                  >
+                    <option value="all">Tous les appareils</option>
+                    <option value="Mobile">Mobile (Téléphone)</option>
+                    <option value="Desktop">Desktop (Ordinateur)</option>
+                    <option value="Tablette">Tablette</option>
+                  </select>
+                </div>
+
+                {/* Filtre Navigateur */}
+                <div>
+                  <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">
+                    Navigateur
+                  </label>
+                  <select
+                    value={filtreNavigateur}
+                    onChange={(e) => setFiltreNavigateur(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
+                  >
+                    <option value="all">Tous les navigateurs</option>
+                    <option value="Chrome">Chrome</option>
+                    <option value="Safari">Safari (iPhone/Mac)</option>
+                    <option value="Firefox">Firefox</option>
+                    <option value="Edge">Edge</option>
+                    <option value="Opera">Opera</option>
+                    <option value="Inconnu">Autre / Inconnu</option>
+                  </select>
+                </div>
+
+                {/* Filtre Statut Client */}
+                <div>
+                  <label className="block mb-1.5 luxury-text text-[#5C4033] text-xs font-medium uppercase tracking-wider">
+                    Statut visiteur
+                  </label>
+                  <select
+                    value={filtreStatutClient}
+                    onChange={(e) => setFiltreStatutClient(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[#D4A574]/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all luxury-text text-sm bg-white"
+                  >
+                    <option value="all">Tous les visiteurs</option>
+                    <option value="commande">Clients ayant commandé</option>
+                    <option value="anonyme">Visiteurs anonymes</option>
+                  </select>
+                </div>
+              </div>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b-2 border-[#E8E0D5]">
-                    <th className="text-left p-4 luxury-text text-sm uppercase tracking-wider text-[#5C4033]">Nom/Prénom</th>
-                    <th className="text-left p-4 luxury-text text-sm uppercase tracking-wider text-[#5C4033]">IP</th>
-                    <th className="text-left p-4 luxury-text text-sm uppercase tracking-wider text-[#5C4033]">Localisation</th>
-                    <th className="text-left p-4 luxury-text text-sm uppercase tracking-wider text-[#5C4033]">Navigateur</th>
-                    <th className="text-left p-4 luxury-text text-sm uppercase tracking-wider text-[#5C4033]">Appareil</th>
-                    <th className="text-left p-4 luxury-text text-sm uppercase tracking-wider text-[#5C4033]">Date et Heure</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visiteurs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center luxury-text text-[#8B6F47]">
-                        Aucune visite trouvée pour la période sélectionnée
-                      </td>
+            {/* VUE 1 : HISTORIQUE CHRONOLOGIQUE DÉTAILLÉ */}
+            {vueVisites === 'details' && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-2 border-[#E8E0D5]">
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Visiteur</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Adresse IP</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Localisation</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Appareil</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Navigateur</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Date et Heure</th>
                     </tr>
-                  ) : (
-                    visiteurs.map((visiteur: any) => {
-                      const hasCommande = visiteur.nom && visiteur.prenom;
-                      // Parser le user_agent pour obtenir navigateur et appareil
-                      const userAgent = visiteur.user_agent || '';
-                      let navigateur = 'Inconnu';
-                      let appareil = 'Inconnu';
-                      
-                      if (userAgent) {
-                        // Détecter le navigateur
-                        if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) navigateur = 'Chrome';
-                        else if (userAgent.includes('Firefox')) navigateur = 'Firefox';
-                        else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) navigateur = 'Safari';
-                        else if (userAgent.includes('Edg')) navigateur = 'Edge';
-                        else if (userAgent.includes('Opera') || userAgent.includes('OPR')) navigateur = 'Opera';
+                  </thead>
+                  <tbody>
+                    {visiteursFiltres.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center luxury-text text-[#8B6F47]">
+                          Aucune visite ne correspond aux critères de recherche.
+                        </td>
+                      </tr>
+                    ) : (
+                      visiteursFiltres.map((visiteur: any) => {
+                        const hasCommande = !!(visiteur.nom && visiteur.prenom);
+                        const { navigateur, appareil } = parseVisiteurUA(visiteur.user_agent || '');
+                        const dateVisite = new Date(visiteur.visited_at);
+                        const dateStr = dateVisite.toLocaleDateString('fr-FR');
+                        const heureStr = dateVisite.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                         
-                        // Détecter l'appareil
-                        if (userAgent.includes('Mobile') || userAgent.includes('Android')) appareil = 'Mobile';
-                        else if (userAgent.includes('Tablet') || userAgent.includes('iPad')) appareil = 'Tablette';
-                        else appareil = 'Desktop';
-                      }
-                      
-                      const dateVisite = new Date(visiteur.visited_at);
-                      const dateStr = dateVisite.toLocaleDateString('fr-FR');
-                      const heureStr = dateVisite.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                      
-                      return (
-                        <tr 
-                          key={visiteur.id} 
-                          className="border-b border-[#E8E0D5] hover:bg-[#FAF7F0] transition-colors cursor-pointer"
-                          onClick={() => {
-                            // Afficher les détails dans une modal ou une section détaillée
-                            alert(`Détails de la visite:\n\nNom: ${hasCommande ? `${visiteur.nom} ${visiteur.prenom}` : 'Anonyme'}\nIP: ${visiteur.ip || 'N/A'}\nLocalisation: ${visiteur.localisation || 'Inconnue'}\nNavigateur: ${navigateur}\nAppareil: ${appareil}\nDate: ${dateStr}\nHeure: ${heureStr}\n\nUser Agent: ${userAgent}`);
-                          }}
-                        >
-                          <td className="p-4 luxury-text">
-                            {hasCommande ? (
-                              <div>
-                                <div className="text-[#3D2817] font-semibold">{visiteur.nom} {visiteur.prenom}</div>
-                                <div className="text-xs text-green-600">✓ A commandé</div>
+                        return (
+                          <tr 
+                            key={visiteur.id} 
+                            className="border-b border-[#E8E0D5] hover:bg-[#FAF7F0] transition-colors cursor-pointer"
+                            onClick={() => setVisiteDetailModal(visiteur)}
+                          >
+                            <td className="p-4 luxury-text">
+                              {hasCommande ? (
+                                <div>
+                                  <div className="text-[#3D2817] font-medium">{visiteur.nom} {visiteur.prenom}</div>
+                                  <span className="inline-block px-2 py-0.5 mt-0.5 text-[10px] uppercase tracking-wider font-semibold bg-green-100 text-green-800 rounded">
+                                    Client
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-[#8B6F47] italic text-xs">Anonyme</span>
+                              )}
+                            </td>
+                            <td className="p-4 luxury-text">
+                              <span className="font-mono text-xs text-[#3D2817] bg-[#FAF7F0] px-2 py-1 rounded border border-[#E8E0D5]">
+                                {visiteur.ip || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="p-4 luxury-text text-sm text-[#8B6F47]">{visiteur.localisation || 'Inconnue'}</td>
+                            <td className="p-4 luxury-text">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                                appareil === 'Mobile'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : appareil === 'Desktop'
+                                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                  : 'bg-purple-50 text-purple-800 border border-purple-200'
+                              }`}>
+                                {appareil === 'Mobile' ? (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                                <span>{appareil}</span>
+                              </span>
+                            </td>
+                            <td className="p-4 luxury-text text-sm text-[#8B6F47]">
+                              <span className="px-2 py-0.5 bg-neutral-100 rounded text-xs text-neutral-700 font-mono">
+                                {navigateur}
+                              </span>
+                            </td>
+                            <td className="p-4 luxury-text text-[#8B6F47]">
+                              <div className="text-sm font-medium text-[#3D2817]">{dateStr}</div>
+                              <div className="text-xs text-[#8B6F47]">{heureStr}</div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* VUE 2 : REGROUPEMENT PAR ADRESSE IP */}
+            {vueVisites === 'grouped' && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-2 border-[#E8E0D5]">
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Adresse IP</th>
+                      <th className="text-center p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Fréquence (Visites)</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Identité</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Localisation</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Appareils utilisés</th>
+                      <th className="text-left p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Dernière visite</th>
+                      <th className="text-right p-4 luxury-text text-xs uppercase tracking-wider text-[#5C4033]">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ipGroupes.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-10 text-center luxury-text text-[#8B6F47]">
+                          Aucune adresse IP ne correspond aux critères de recherche.
+                        </td>
+                      </tr>
+                    ) : (
+                      ipGroupes.map((item) => {
+                        const dateVisite = new Date(item.derniereVisite);
+                        const dateStr = dateVisite.toLocaleDateString('fr-FR');
+                        const heureStr = dateVisite.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                        
+                        return (
+                          <tr 
+                            key={item.ip} 
+                            className="border-b border-[#E8E0D5] hover:bg-[#FAF7F0] transition-colors"
+                          >
+                            <td className="p-4 luxury-text">
+                              <span className="font-mono text-sm font-semibold text-[#3D2817] bg-[#FAF7F0] px-2.5 py-1 rounded border border-[#E8E0D5]">
+                                {item.ip}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                                item.count >= 10
+                                  ? 'bg-[#B8860B] text-white shadow-sm'
+                                  : item.count >= 3
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                  : 'bg-neutral-100 text-neutral-800'
+                              }`}>
+                                {item.count} {item.count > 1 ? 'visites' : 'visite'}
+                              </span>
+                            </td>
+                            <td className="p-4 luxury-text">
+                              {item.hasCommande ? (
+                                <div>
+                                  <div className="text-[#3D2817] font-medium">{item.nom} {item.prenom}</div>
+                                  <span className="text-[10px] text-green-700 font-semibold uppercase">✓ Client confirmé</span>
+                                </div>
+                              ) : (
+                                <span className="text-[#8B6F47] italic text-xs">Visiteur anonyme</span>
+                              )}
+                            </td>
+                            <td className="p-4 luxury-text text-sm text-[#8B6F47]">{item.localisation}</td>
+                            <td className="p-4 luxury-text">
+                              <div className="flex flex-wrap gap-1.5">
+                                {Object.entries(item.appareils).map(([app, count]) => (
+                                  <span
+                                    key={app}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-medium ${
+                                      app === 'Mobile'
+                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                        : 'bg-blue-50 text-blue-800 border border-blue-200'
+                                    }`}
+                                  >
+                                    {app} ({count})
+                                  </span>
+                                ))}
                               </div>
-                            ) : (
-                              <span className="text-[#8B6F47] italic">Visiteur anonyme</span>
-                            )}
-                          </td>
-                          <td className="p-4 luxury-text text-[#3D2817]">{visiteur.ip || 'N/A'}</td>
-                          <td className="p-4 luxury-text text-[#8B6F47]">{visiteur.localisation || 'Inconnue'}</td>
-                          <td className="p-4 luxury-text text-[#8B6F47]">{navigateur}</td>
-                          <td className="p-4 luxury-text text-[#8B6F47]">{appareil}</td>
-                          <td className="p-4 luxury-text text-[#8B6F47]">
-                            <div>{dateStr}</div>
-                            <div className="text-xs">{heureStr}</div>
-                          </td>
+                            </td>
+                            <td className="p-4 luxury-text text-[#8B6F47]">
+                              <div className="text-sm font-medium text-[#3D2817]">{dateStr}</div>
+                              <div className="text-xs text-[#8B6F47]">{heureStr}</div>
+                            </td>
+                            <td className="p-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedIpVisites({ ip: item.ip, visites: item.visites })}
+                                className="px-3 py-1.5 text-xs font-medium uppercase tracking-wider bg-[#3D2817] text-white rounded hover:bg-[#5C4033] transition-colors"
+                              >
+                                Détails ({item.count})
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* MODAL HISTORIQUE D'UNE ADRESSE IP */}
+            {selectedIpVisites && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col border border-[#E8E0D5] overflow-hidden">
+                  {/* Modal Header */}
+                  <div className="p-6 bg-gradient-to-r from-[#FAF7F0] to-[#F5F1EB] border-b border-[#E8E0D5] flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] uppercase tracking-widest text-[#8B6F47] font-semibold">
+                        Historique des passages
+                      </span>
+                      <h3 className="luxury-title text-xl text-[#3D2817] mt-0.5">
+                        Adresse IP : <span className="font-mono text-[#B8860B]">{selectedIpVisites.ip}</span>
+                      </h3>
+                      <p className="text-xs text-[#8B6F47] mt-0.5">
+                        {selectedIpVisites.visites.length} {selectedIpVisites.visites.length > 1 ? 'visites enregistrées' : 'visite enregistrée'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIpVisites(null)}
+                      className="p-2 text-[#8B6F47] hover:text-[#3D2817] rounded-lg hover:bg-white/60 transition-colors"
+                      aria-label="Fermer"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-6 overflow-y-auto flex-1">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-[#E8E0D5] text-xs uppercase tracking-wider text-[#5C4033]">
+                          <th className="pb-3">Date & Heure</th>
+                          <th className="pb-3">Appareil</th>
+                          <th className="pb-3">Navigateur</th>
+                          <th className="pb-3">Client</th>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8E0D5]/50 text-sm">
+                        {selectedIpVisites.visites.map((v: any) => {
+                          const { navigateur, appareil } = parseVisiteurUA(v.user_agent || '');
+                          const date = new Date(v.visited_at);
+                          return (
+                            <tr key={v.id} className="hover:bg-[#FAF7F0]">
+                              <td className="py-3 font-medium text-[#3D2817]">
+                                {date.toLocaleDateString('fr-FR')} à {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="py-3">
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  appareil === 'Mobile' ? 'bg-emerald-50 text-emerald-800' : 'bg-blue-50 text-blue-800'
+                                }`}>
+                                  {appareil}
+                                </span>
+                              </td>
+                              <td className="py-3 text-xs font-mono text-[#8B6F47]">{navigateur}</td>
+                              <td className="py-3 text-xs text-[#8B6F47]">
+                                {v.nom && v.prenom ? `${v.nom} ${v.prenom}` : 'Anonyme'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-4 bg-[#FAF7F0] border-t border-[#E8E0D5] flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIpVisites(null)}
+                      className="px-5 py-2 text-xs uppercase tracking-wider font-semibold bg-[#3D2817] text-white rounded-lg hover:bg-[#5C4033] transition-colors"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL DÉTAILS D'UNE SEULE VISITE */}
+            {visiteDetailModal && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-[#E8E0D5] overflow-hidden">
+                  <div className="p-6 bg-gradient-to-r from-[#FAF7F0] to-[#F5F1EB] border-b border-[#E8E0D5] flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] uppercase tracking-widest text-[#8B6F47] font-semibold">
+                        Fiche Visite
+                      </span>
+                      <h3 className="luxury-title text-xl text-[#3D2817] mt-0.5">Détail du passage</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setVisiteDetailModal(null)}
+                      className="p-2 text-[#8B6F47] hover:text-[#3D2817] rounded-lg hover:bg-white/60 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-6 space-y-3 text-sm">
+                    <div className="flex justify-between py-1.5 border-b border-neutral-100">
+                      <span className="text-[#8B6F47]">Adresse IP :</span>
+                      <span className="font-mono font-medium text-[#3D2817]">{visiteDetailModal.ip || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-neutral-100">
+                      <span className="text-[#8B6F47]">Identité :</span>
+                      <span className="font-medium text-[#3D2817]">
+                        {visiteDetailModal.nom && visiteDetailModal.prenom
+                          ? `${visiteDetailModal.nom} ${visiteDetailModal.prenom} (Client)`
+                          : 'Visiteur anonyme'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-neutral-100">
+                      <span className="text-[#8B6F47]">Localisation :</span>
+                      <span className="text-[#3D2817]">{visiteDetailModal.localisation || 'Inconnue'}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-neutral-100">
+                      <span className="text-[#8B6F47]">Appareil :</span>
+                      <span className="font-medium text-[#3D2817]">
+                        {parseVisiteurUA(visiteDetailModal.user_agent).appareil}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-neutral-100">
+                      <span className="text-[#8B6F47]">Navigateur :</span>
+                      <span className="font-medium text-[#3D2817]">
+                        {parseVisiteurUA(visiteDetailModal.user_agent).navigateur}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-neutral-100">
+                      <span className="text-[#8B6F47]">Date et heure :</span>
+                      <span className="text-[#3D2817]">
+                        {new Date(visiteDetailModal.visited_at).toLocaleDateString('fr-FR')} à{' '}
+                        {new Date(visiteDetailModal.visited_at).toLocaleTimeString('fr-FR')}
+                      </span>
+                    </div>
+                    <div className="pt-2">
+                      <span className="text-xs text-[#8B6F47] block mb-1">User Agent brut :</span>
+                      <p className="text-[11px] font-mono bg-neutral-50 p-2.5 rounded border border-neutral-200 text-neutral-600 break-all">
+                        {visiteDetailModal.user_agent || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-[#FAF7F0] border-t border-[#E8E0D5] flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setVisiteDetailModal(null)}
+                      className="px-5 py-2 text-xs uppercase tracking-wider font-semibold bg-[#3D2817] text-white rounded-lg hover:bg-[#5C4033] transition-colors"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
