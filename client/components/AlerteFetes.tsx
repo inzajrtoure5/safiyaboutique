@@ -86,22 +86,24 @@ export default function AlerteFetes() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0">
-            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg mb-1">🎉 Promotion Spéciale</h3>
-            <p className="text-sm leading-relaxed">
+        <div className="flex items-start">
+          <div className="flex-1 pr-6">
+            <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block mb-1">
+              Offre Exclusive
+            </span>
+            <h3 className="font-semibold text-base uppercase tracking-wider text-white mb-2">
+              Promotion Spéciale
+            </h3>
+            <p className="text-sm text-neutral-300 font-light leading-relaxed">
               {texte}
-              {reduction > 0 && (
-                <span className="block mt-2 font-bold text-lg">
-                  {reduction}% de réduction
-                </span>
-              )}
             </p>
+            {reduction > 0 && (
+              <div className="mt-3">
+                <span className="inline-block px-2.5 py-1 text-xs font-semibold tracking-wider uppercase bg-white text-black rounded-sm">
+                  -{reduction}% de réduction
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
